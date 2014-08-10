@@ -1,4 +1,4 @@
-package bot
+package logbot
 
 import (
 	"time"
@@ -12,18 +12,16 @@ func HourAndMinute(t time.Time) string {
 }
 
 func TestBot(t *testing.T) {
-	conn, _ := Connect("irc.freenode.net", "fixme-bot", "fixme-bot", "testing", 6666, []string{"yssyd3", "archlinux-cn"})
 	c := make(chan RawMsg)
-	go func() {
-		for {
-			raw := <-c
-			msg, err := ParseIRCMsg(raw.Time, raw.Line)
 
-			if err == nil && strings.Contains(msg.Prefix, "!"){
-				fmt.Printf("%s, %s, %s, %v\n", HourAndMinute(msg.Time),
-					strings.Split(msg.Prefix, "!")[0], msg.Command, msg.Paramters)
-			}
+	go bot(SERVER, NICK, PASS, USER, INFO, PORT, CHANNELS, c)
+	for {
+		raw := <-c
+		msg, err := ParseIRCMsg(raw.Time, raw.Line)
+
+		if err == nil && strings.Contains(msg.Prefix, "!") {
+			fmt.Printf("%s, %s, %s, %v\n", HourAndMinute(msg.Time),
+				strings.Split(msg.Prefix, "!")[0], msg.Command, msg.Paramters)
 		}
-	}()
-	Listen(conn, c)
+	}
 }
