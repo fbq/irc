@@ -1,4 +1,4 @@
-package main
+package bot
 
 import (
 	"net"
@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"strings"
 	"time"
-	"./irc"
 )
 
 type RawMsg struct {
@@ -14,7 +13,7 @@ type RawMsg struct {
 	Line string
 }
 
-func connect(server, nick, user, info string, port uint16, channels []string) (conn net.Conn, err error){
+func Connect(server, nick, user, info string, port uint16, channels []string) (conn net.Conn, err error){
 	address := fmt.Sprintf("%s:%v", server, port)
 
 	conn, err = net.Dial("tcp", address)
@@ -34,7 +33,7 @@ func connect(server, nick, user, info string, port uint16, channels []string) (c
 }
 
 
-func listen(conn net.Conn, channel chan RawMsg) {
+func Listen(conn net.Conn, channel chan RawMsg) {
 	reader := bufio.NewReader(conn)
 
 	for {
@@ -50,23 +49,3 @@ func listen(conn net.Conn, channel chan RawMsg) {
 	}
 }
 
-func HourAndMinute(t time.Time) string {
-	return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
-}
-
-func main() {
-	conn, _ := connect("irc.freenode.net", "fixme-bot", "fixme-bot", "testing", 6666, []string{"yssyd3", "archlinux-cn"})
-	c := make(chan RawMsg)
-	go func() {
-		for {
-			raw := <-c
-			msg, err := irc.ParseIRCMsg(raw.Line)
-
-			if err == nil && strings.Contains(msg.Prefix, "!"){
-				fmt.Printf("%s, %s, %s, %v\n", HourAndMinute(raw.Time),
-					strings.Split(msg.Prefix, "!")[0], msg.Command, msg.Paramters)
-			}
-		}
-	}()
-	listen(conn, c)
-}

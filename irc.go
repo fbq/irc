@@ -1,14 +1,16 @@
-package irc
+package bot
 
 import (
 	"strings"
 	"fmt"
+	"time"
 )
 
 /*
  * irc message according to RFC 1459
  */
 type IRCMsg struct {
+	Time time.Time
 	Prefix string //indicate who send out the message
 	Command string
 	Paramters []string
@@ -22,7 +24,7 @@ func (e *InvalidIRCMsgError) Error() string {
 	return fmt.Sprintf("Invalid IRC Msg: %s", e.Reason)
 }
 
-func ParseIRCMsg(line string) (msg IRCMsg, err error) {
+func ParseIRCMsg(time time.Time, line string) (msg IRCMsg, err error) {
 	line = strings.TrimSuffix(line, "\r\n")
 
 	if len(line) == 0 {
@@ -30,6 +32,7 @@ func ParseIRCMsg(line string) (msg IRCMsg, err error) {
 		return
 	}
 
+	msg.Time = time
 	tokens := strings.Split(line, " ")
 
 	var index int
@@ -55,9 +58,21 @@ func ParseIRCMsg(line string) (msg IRCMsg, err error) {
 	msg.Command = tokens[index]
 	index++
 
-	/* paramter */
+	/* parameter */
 
-	msg.Paramters = make([]string, 0, 10) //FIXME only support for 10 paramter, this may be wrong
+	/* count how many paratmeter */
+	index2 := index
+	count := 0
+	for ; index2 <len(tokens); index2++ {
+		if tokens[index2] != "" {
+			count++
+			if strings.HasPrefix(tokens[index2], ":") {
+				break
+			}
+		}
+	}
+
+	msg.Paramters = make([]string, 0, count)
 
 	for ; index < len(tokens); index++ {
 		if tokens[index] != "" {
