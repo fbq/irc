@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"strings"
 	"time"
-	"net/http"
 )
 
 type RawMsg struct {
@@ -31,7 +30,9 @@ func Connect(server, nick, pass, user, info string, port uint16, channels []stri
 	}
 
 	for _, c := range channels {
-		fmt.Fprintf(conn, "join #%s\r\n", c)
+		if c != "" {
+			fmt.Fprintf(conn, "join #%s\r\n", c)
+		}
 	}
 
 	return;
@@ -63,33 +64,4 @@ func bot(server, nick, pass, user, info string, port uint16, channels []string, 
 		}
 
 	}
-}
-
-//FIXME msg in memory
-
-var buffer []IRCMsg
-var current int
-
-func init() {
-	http.HandleFunc("/", handler)
-	buffer = make([]IRCMsg, 100)
-	ch := make(chan RawMsg)
-	go bot(SERVER, NICK, PASS, USER, INFO, PORT, CHANNELS, ch)
-	go func() {
-		for {
-			raw := <-ch
-			msg, err := ParseIRCMsg(raw.Time, raw.Line)
-			if err == nil {
-				buffer[current] = msg
-			}
-			current = (current + 1) % 100
-		}
-	}()
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	for _, v := range buffer {
-		fmt.Fprintf(w, "%v\n", v)
-	}
-
 }
