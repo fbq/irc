@@ -1,4 +1,4 @@
-package logbot
+package ircbot
 
 import (
 	"net"
