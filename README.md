@@ -1,4 +1,4 @@
-logbot
+ircbot
 ======
 
 a irc log bot written by golang
