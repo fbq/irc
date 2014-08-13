@@ -1,4 +1,4 @@
-package ircbot
+package bot
 
 import (
 	"net"
