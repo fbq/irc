@@ -2,10 +2,18 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 	"net/http"
+	"html/template"
 	"strings"
 	"github.com/fbq/irc/bot"
 	"github.com/fzzy/radix/redis"
+	"github.com/drone/routes"
+)
+
+const (
+	redisConnStr string = "127.0.0.1:6379"
 )
 
 type BotConfig struct {
@@ -25,7 +33,7 @@ var botConfig BotConfig = BotConfig{
 	"bot",
 	"Olaf is a snow man",
 	6666,
-	[]string{"yssyd3"},
+	[]string{"yssyd3", "archlinux-cn"},
 }
 
 var ch chan bot.RawMsg
@@ -35,13 +43,18 @@ func main() {
 	go bot.Bot(botConfig.Server, botConfig.Nick, botConfig.Pass, botConfig.User,
 		botConfig.Info, botConfig.Port, botConfig.Channels, ch)
 
-	http.HandleFunc("/", index)
+	mux := routes.New()
+	mux.Get("/", index)
+	mux.Get("/channel/:cname", channel)
 
+	http.Handle("/", mux)
 	go daemon(ch)
 	http.ListenAndServe(":8080", nil)
 }
+
 func index(w http.ResponseWriter, r *http.Request) {
 	client, err := redis.Dial("tcp", "127.0.0.1:6379")
+	defer client.Close()
 
 	if err != nil {
 		fmt.Printf("Connection to redis server failed\n")
@@ -49,17 +62,58 @@ func index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "<!doctype html><html><body>")
-	msgsByTime, _ := client.Cmd("zrange", "msg:bytime", 0, -1).List()
+	channels, _ := client.Cmd("SMEMBERS", "channels").List()
 
-	for _, msgid := range msgsByTime {
-		items, _ := client.Cmd("HGETALL", msgid).Hash()
-
-		fmt.Fprintf(w, "%v<br/>", items)
+	for _, channel := range channels {
+		fmt.Fprintf(w, "<a href='/channel/%s'>%s</a><br/>", channel, channel)
 	}
 	fmt.Fprintf(w, "</html></body>")
-	client.Close()
 }
 
+func channel(w http.ResponseWriter, r *http.Request) {
+	client, err := redis.Dial("tcp", "127.0.0.1:6379")
+	defer client.Close()
+
+	if err != nil {
+		fmt.Printf("Connection to redis server failed\n")
+		return
+	}
+
+	params := r.URL.Query()
+	cname := params.Get(":cname")
+	isIn, _ := client.Cmd("SISMEMBER", "channels", cname).Bool()
+	fmt.Fprintf(w, "<!doctype html><html><body>")
+	fmt.Fprintf(w, "<table>")
+	fmt.Fprintf(w, "<tr><td>time</td><td>nick</td><td>type</td><td>content</td></tr>")
+	tmpl, _ := template.New("msg").Parse("<tr><td>{{.time}}</td><td>{{.nick}}</td><td>{{.type}}</td><td>{{.content}}</td></tr>")
+	if isIn {
+		msgs, _ := client.Cmd("ZRANGE", key(cname, "queue"), 0, -1).List()
+		for _, msg := range msgs {
+			item, _ := client.Cmd("HGETALL", msg).Hash()
+			switch item["type"] {
+			case "privmsg", "PRIVMSG", "action", "ACTION":
+				fmt.Fprintf(w, "<tr>")
+				nano, _ := strconv.ParseInt(item["time"], 10, 64)
+				time := time.Unix(nano/1000000000, nano)
+				item["time"] = time.UTC().Format("15:04:05")
+				tmpl.Execute(w, item)
+			}
+		}
+	}
+	fmt.Fprintf(w, "</table>")
+	fmt.Fprintf(w, "</html></body>")
+}
+func key(prefix, suffix string) string {
+	return fmt.Sprintf("%s:%s", prefix, suffix)
+}
+
+func countKey(prefix string) string {
+	return key(prefix, "count")
+}
+
+func recordIdKey(prefix string, id int64) string {
+	return key(prefix, fmt.Sprintf("record:%v", id))
+}
 
 
 func daemon(ch chan bot.RawMsg) {
@@ -72,19 +126,45 @@ func daemon(ch chan bot.RawMsg) {
 	}
 
 	defer client.Close()
-
-	client.Cmd("SETNX", "msg:count", 0)
-
 	for {
 		raw := <-ch
-		msg, _ := bot.ParseIRCMsg(raw.Time, raw.Line)
-		count := client.Cmd("INCR", "msg:count")
-		id, _ := count.Int()
-		client.Cmd("ZADD", "msg:bytime", msg.Time.UnixNano(), fmt.Sprintf("msg:id:%v", id))
-		client.Cmd("HMSET", fmt.Sprintf("msg:id:%v", id),
-			"prefix", msg.Prefix, "command", msg.Command,
-			"parameters", strings.Join(msg.Paramters, " "),
-			"time", msg.Time.UnixNano())
+		msg, err := bot.ParseIRCMsg(raw.Time, raw.Line)
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			continue
+		}
+
+		if strings.EqualFold(msg.Command, "privmsg") {
+			var prefix string
+			if msg.Parameters[0][0] == '#' {
+				prefix = msg.Parameters[0][1:]
+			} else {
+				prefix = msg.Parameters[0]
+			}
+
+			client.Cmd("SADD", "channels", prefix)
+			client.Cmd("SETNX", countKey(prefix), 0)
+			count := client.Cmd("INCR", countKey(prefix))
+
+			nick := strings.Split(msg.Prefix, "!~")[0]
+			id, _ := count.Int64()
+			idkey := recordIdKey(prefix, id)
+			queue := key(prefix, "queue")
+			client.Cmd("ZADD", queue, msg.Time.UnixNano(), idkey)
+			if msg.Parameters[1][0] == byte(0x01) {
+				ctcpMsg := strings.Trim(msg.Parameters[1], "\x01")
+				ctcpFields := strings.Split(ctcpMsg, " ")
+				if strings.EqualFold(ctcpFields[0], "ACTION") {
+					client.Cmd("HMSET", idkey, "time", msg.Time.UnixNano(),
+						"content", ctcpFields[1], "nick", nick,
+						"type", "action")
+				}
+			} else {
+				client.Cmd("HMSET", idkey, "time", msg.Time.UnixNano(),
+					"content", msg.Parameters[1], "nick", nick,
+					"type", "privmsg")
+			}
+		}
 	}
 }
 

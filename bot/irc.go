@@ -13,7 +13,7 @@ type IRCMsg struct {
 	Time time.Time
 	Prefix string //indicate who send out the message
 	Command string
-	Paramters []string
+	Parameters []string
 }
 
 type InvalidIRCMsgError struct {
@@ -72,16 +72,16 @@ func ParseIRCMsg(time time.Time, line string) (msg IRCMsg, err error) {
 		}
 	}
 
-	msg.Paramters = make([]string, 0, count)
+	msg.Parameters = make([]string, 0, count)
 
 	for ; index < len(tokens); index++ {
 		if tokens[index] != "" {
 			if strings.HasPrefix(tokens[index], ":") {
 				str := strings.Join(tokens[index:], " ")[1:]
-				msg.Paramters = append(msg.Paramters, str)
+				msg.Parameters = append(msg.Parameters, str)
 				break
 			} else {
-				msg.Paramters = append(msg.Paramters, tokens[index])
+				msg.Parameters = append(msg.Parameters, tokens[index])
 			}
 		}
 	}
