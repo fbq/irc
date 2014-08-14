@@ -94,8 +94,8 @@ func channel(w http.ResponseWriter, r *http.Request) {
 			case "privmsg", "PRIVMSG", "action", "ACTION":
 				fmt.Fprintf(w, "<tr>")
 				nano, _ := strconv.ParseInt(item["time"], 10, 64)
-				time := time.Unix(nano/1000000000, nano)
-				item["time"] = time.UTC().Format("15:04:05")
+				t := time.Unix(0, nano)
+				item["time"] = t.UTC().Format(time.UnixDate)
 				tmpl.Execute(w, item)
 			}
 		}
