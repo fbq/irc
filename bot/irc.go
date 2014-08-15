@@ -12,7 +12,7 @@ import (
 type IRCMsg struct {
 	Time time.Time
 	Prefix string //indicate who send out the message
-	Command string
+	Command uint
 	Parameters []string
 }
 
@@ -55,7 +55,7 @@ func ParseIRCMsg(time time.Time, line string) (msg IRCMsg, err error) {
 		return
 	}
 
-	msg.Command = tokens[index]
+	msg.Command = CMD[strings.ToUpper(tokens[index])]
 	index++
 
 	/* parameter */

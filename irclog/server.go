@@ -134,7 +134,8 @@ func daemon(ch chan bot.RawMsg) {
 			continue
 		}
 
-		if strings.EqualFold(msg.Command, "privmsg") {
+		switch msg.Command {
+		case bot.PRIVMSG_CMD:
 			var prefix string
 			if msg.Parameters[0][0] == '#' {
 				prefix = msg.Parameters[0][1:]

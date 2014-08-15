@@ -10,7 +10,7 @@ import (
 
 const (
 	server = "irc.freenode.net"
-	nick = "[Olaf]"
+	nick = "[Olaf-test]"
 	user = "Olaf"
 	info = "Olaf is a snow man, and see the log at http://xxxx" //TODO a url for the log
 	pass = ""
@@ -33,7 +33,7 @@ func TestBot(t *testing.T) {
 
 		if err == nil && strings.Contains(msg.Prefix, "!") {
 			fmt.Printf("%s, %s, %s, %v\n", hourAndMinute(msg.Time),
-				strings.Split(msg.Prefix, "!")[0], msg.Command, msg.Paramters)
+				strings.Split(msg.Prefix, "!")[0], DMC[msg.Command], msg.Parameters)
 		}
 	}
 }
