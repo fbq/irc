@@ -32,8 +32,8 @@ func TestBot(t *testing.T) {
 		msg, err := ParseIRCMsg(raw.Time, raw.Line)
 
 		if err == nil && strings.Contains(msg.Prefix, "!") {
-			fmt.Printf("%s, %s, %s, %v\n", hourAndMinute(msg.Time),
-				strings.Split(msg.Prefix, "!")[0], DMC[msg.Command], msg.Parameters)
+			fmt.Printf("%s, %s, %s, %v, %v\n", hourAndMinute(msg.Time),
+				strings.Split(msg.Prefix, "!")[0], DMC[msg.Command], msg.SubCommand, msg.Parameters)
 		}
 	}
 }

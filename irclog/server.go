@@ -83,24 +83,40 @@ func channel(w http.ResponseWriter, r *http.Request) {
 	cname := params.Get(":cname")
 	isIn, _ := client.Cmd("SISMEMBER", "channels", cname).Bool()
 	fmt.Fprintf(w, "<!doctype html><html><body>")
-	fmt.Fprintf(w, "<table>")
-	fmt.Fprintf(w, "<tr><td>time</td><td>nick</td><td>type</td><td>content</td></tr>")
-	tmpl, _ := template.New("msg").Parse("<tr><td>{{.time}}</td><td>{{.nick}}</td><td>{{.type}}</td><td>{{.content}}</td></tr>")
+	tmpl, _ := template.New("msg").Parse("{{.left}} {{.middle}} {{.right}}<br/>")
+	line := map[string]string{"left": "", "middle": "", "right": "",}
 	if isIn {
-		msgs, _ := client.Cmd("ZRANGE", key(cname, "queue"), 0, -1).List()
+		msgs, _ := client.Cmd("ZRANGE", key(key("channel", cname), "queue"), 0, -1).List()
 		for _, msg := range msgs {
 			item, _ := client.Cmd("HGETALL", msg).Hash()
-			switch item["type"] {
-			case "privmsg", "PRIVMSG", "action", "ACTION":
-				fmt.Fprintf(w, "<tr>")
-				nano, _ := strconv.ParseInt(item["time"], 10, 64)
-				t := time.Unix(0, nano)
-				item["time"] = t.UTC().Format(time.UnixDate)
-				tmpl.Execute(w, item)
+			msgType, _ := strconv.Atoi(item["type"])
+			msgSubType, _ := strconv.Atoi(item["subtype"])
+			nano, _ := strconv.ParseInt(item["time"], 10, 64)
+			t := time.Unix(0, nano)
+			line["left"] = t.UTC().Format(time.Stamp)
+
+			switch msgType{
+			case bot.PRIVMSG_CMD:
+				if msgSubType == bot.CTCP_ACTION_SUB {
+					line["middle"] = fmt.Sprintf("---ACTION:")
+					line["right"] = fmt.Sprintf("%s %s", item["sender"], item["content"])
+				} else {
+					line["middle"] = fmt.Sprintf("<%s>",item["sender"])
+					line["right"] = item["content"]
+				}
+			case bot.JOIN_CMD:
+				line["middle"] = fmt.Sprintf("---JOIN:")
+				line["right"] = fmt.Sprintf("%s JOIN %s", item["sender"], cname)
+			case bot.PART_CMD:
+				line["middle"] = fmt.Sprintf("---PART:")
+				line["right"] = fmt.Sprintf("%s PART %s", item["sender"], cname)
+			default:
+				line["middle"] = fmt.Sprintf("<%s>",item["sender"])
+				line["right"] = fmt.Sprintf("%s %s", bot.DMC[msgType], item["content"])
 			}
+			tmpl.Execute(w, line)
 		}
 	}
-	fmt.Fprintf(w, "</table>")
 	fmt.Fprintf(w, "</html></body>")
 }
 func key(prefix, suffix string) string {
@@ -134,38 +150,40 @@ func daemon(ch chan bot.RawMsg) {
 			continue
 		}
 
+		sender := strings.Split(msg.Prefix, "!")[0]  //this is ok for server/user/empty
+
 		switch msg.Command {
 		case bot.PRIVMSG_CMD:
 			var prefix string
 			if msg.Parameters[0][0] == '#' {
-				prefix = msg.Parameters[0][1:]
+				prefix = key("channel", msg.Parameters[0][1:])
+				client.Cmd("SADD", "channels", msg.Parameters[0][1:])
 			} else {
-				prefix = msg.Parameters[0]
+				prefix = key("nick", msg.Parameters[0])
 			}
 
-			client.Cmd("SADD", "channels", prefix)
-			client.Cmd("SETNX", countKey(prefix), 0)
-			count := client.Cmd("INCR", countKey(prefix))
-
-			nick := strings.Split(msg.Prefix, "!~")[0]
-			id, _ := count.Int64()
-			idkey := recordIdKey(prefix, id)
+			id := allocMsgID(prefix, client)
 			queue := key(prefix, "queue")
-			client.Cmd("ZADD", queue, msg.Time.UnixNano(), idkey)
-			if msg.Parameters[1][0] == byte(0x01) {
-				ctcpMsg := strings.Trim(msg.Parameters[1], "\x01")
-				ctcpFields := strings.Split(ctcpMsg, " ")
-				if strings.EqualFold(ctcpFields[0], "ACTION") {
-					client.Cmd("HMSET", idkey, "time", msg.Time.UnixNano(),
-						"content", ctcpFields[1], "nick", nick,
-						"type", "action")
-				}
-			} else {
-				client.Cmd("HMSET", idkey, "time", msg.Time.UnixNano(),
-					"content", msg.Parameters[1], "nick", nick,
-					"type", "privmsg")
-			}
+			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
+			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
+				"content", msg.Parameters[1], "sender", sender,
+				"type", msg.Command, "subtype", msg.SubCommand)
+		case bot.JOIN_CMD, bot.PART_CMD:
+			prefix := key("channel", msg.Parameters[0][1:]) //only channels can be part/join
+			id := allocMsgID(prefix, client)
+			queue := key(prefix, "queue")
+			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
+			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
+				"content", "", "sender", sender,
+				"type", msg.Command, "subtype", msg.SubCommand)
 		}
 	}
 }
 
+func allocMsgID(prefix string, client *redis.Client) string {
+	client.Cmd("SETNX", countKey(prefix), 0)
+	count := client.Cmd("INCR", countKey(prefix))
+	id, _ := count.Int64()
+	idkey := recordIdKey(prefix, id)
+	return idkey
+}

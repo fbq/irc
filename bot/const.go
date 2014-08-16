@@ -1,7 +1,8 @@
 package bot
 
 const (
-	PASS_CMD = iota
+	_ = iota
+	PASS_CMD
 	NICK_CMD
 	USER_CMD
 	SERVER_CMD
@@ -43,7 +44,7 @@ const (
 	ISON_CMD
 )
 
-var CMD map[string]uint = map[string]uint {
+var CMD map[string]int = map[string]int {
 	"PASS": PASS_CMD,
 	"NICK": NICK_CMD,
 	"USER": USER_CMD,
@@ -86,7 +87,7 @@ var CMD map[string]uint = map[string]uint {
 	"ISON": ISON_CMD,
 }
 
-var DMC map[uint]string = map[uint]string {
+var DMC map[int]string = map[int]string {
 	PASS_CMD: "PASS",
 	NICK_CMD: "NICK",
 	USER_CMD: "USER",
@@ -128,3 +129,10 @@ var DMC map[uint]string = map[uint]string {
 	USERHOST_CMD: "USERHOST",
 	ISON_CMD: "ISON",
 }
+
+// subcommand is just a fine-grained division of command
+// there may be no standard or rfc for it
+const (
+	_ = iota
+	CTCP_ACTION_SUB
+)

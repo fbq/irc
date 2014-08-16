@@ -12,7 +12,8 @@ import (
 type IRCMsg struct {
 	Time time.Time
 	Prefix string //indicate who send out the message
-	Command uint
+	Command int
+	SubCommand int
 	Parameters []string
 }
 
@@ -86,6 +87,17 @@ func ParseIRCMsg(time time.Time, line string) (msg IRCMsg, err error) {
 		}
 	}
 
+	if msg.Command == PRIVMSG_CMD { // could be a CTCP
+		if len(msg.Parameters[1]) > 2 && msg.Parameters[1][0] == '\x01' {
+			str := strings.Trim(msg.Parameters[1], "\x01")
+			if i := strings.Index(str, " "); i != -1 {
+				if strings.EqualFold("ACTION", str[0:i]) {
+					msg.SubCommand = CTCP_ACTION_SUB
+					msg.Parameters[1] = str[i+1:]
+				}
+			}
+		}
+	}
 	err = nil
 	return
 }
