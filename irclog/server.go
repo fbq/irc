@@ -16,6 +16,8 @@ const (
 	redisConnStr string = "127.0.0.1:6379"
 )
 
+var location *time.Location
+
 type BotConfig struct {
 	Server string
 	Nick string
@@ -39,6 +41,7 @@ var botConfig BotConfig = BotConfig{
 var ch chan bot.RawMsg
 
 func main() {
+	location, _ = time.LoadLocation("Asia/Shanghai")
 	ch = make(chan bot.RawMsg)
 	go bot.Bot(botConfig.Server, botConfig.Nick, botConfig.Pass, botConfig.User,
 		botConfig.Info, botConfig.Port, botConfig.Channels, ch)
@@ -93,7 +96,7 @@ func channel(w http.ResponseWriter, r *http.Request) {
 			msgSubType, _ := strconv.Atoi(item["subtype"])
 			nano, _ := strconv.ParseInt(item["time"], 10, 64)
 			t := time.Unix(0, nano)
-			line["left"] = t.UTC().Format(time.Stamp)
+			line["left"] = t.In(location).Format(time.Stamp)
 
 			switch msgType{
 			case bot.PRIVMSG_CMD:
