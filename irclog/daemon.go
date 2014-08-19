@@ -8,12 +8,9 @@ import (
 	"github.com/fzzy/radix/redis"
 	"log"
 	"os"
+	. "./lib"
 )
 
-const (
-	redisServerAddress string = "127.0.0.1"
-	redisServerPort int = 6379
-)
 
 var location *time.Location
 
@@ -37,17 +34,6 @@ func main() {
 	daemon(ch)
 }
 
-func key(prefix, suffix string) string {
-	return fmt.Sprintf("%s:%s", prefix, suffix)
-}
-
-func countKey(prefix string) string {
-	return key(prefix, "count")
-}
-
-func recordIdKey(prefix string, id int64) string {
-	return key(prefix, fmt.Sprintf("record:%v", id))
-}
 
 func daemonEnd(client *redis.Client) {
 	client.Close()
@@ -56,7 +42,7 @@ func daemonEnd(client *redis.Client) {
 
 func daemon(ch chan bot.RawMsg) {
 	var client *redis.Client
-	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", redisServerAddress, redisServerPort))
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 
 	if err != nil {
 		log.Printf("daemon: Connection to redis server failed\n")
@@ -79,22 +65,22 @@ func daemon(ch chan bot.RawMsg) {
 		case bot.PRIVMSG_CMD:
 			var prefix string
 			if msg.Parameters[0][0] == '#' {
-				prefix = key("channel", msg.Parameters[0][1:])
+				prefix = Key("channel", msg.Parameters[0][1:])
 				client.Cmd("SADD", "channels", msg.Parameters[0][1:])
 			} else {
-				prefix = key("nick", msg.Parameters[0])
+				prefix = Key("nick", msg.Parameters[0])
 			}
 
 			id := allocMsgID(prefix, client)
-			queue := key(prefix, "queue")
+			queue := Key(prefix, "queue")
 			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
 			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
 				"content", msg.Parameters[1], "sender", sender,
 				"type", msg.Command, "subtype", msg.SubCommand)
 		case bot.JOIN_CMD, bot.PART_CMD:
-			prefix := key("channel", msg.Parameters[0][1:]) //only channels can be part/join
+			prefix := Key("channel", msg.Parameters[0][1:]) //only channels can be part/join
 			id := allocMsgID(prefix, client)
-			queue := key(prefix, "queue")
+			queue := Key(prefix, "queue")
 			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
 			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
 				"content", "", "sender", sender,
@@ -104,9 +90,9 @@ func daemon(ch chan bot.RawMsg) {
 }
 
 func allocMsgID(prefix string, client *redis.Client) string {
-	client.Cmd("SETNX", countKey(prefix), 0)
-	count := client.Cmd("INCR", countKey(prefix))
+	client.Cmd("SETNX", CountKey(prefix), 0)
+	count := client.Cmd("INCR", CountKey(prefix))
 	id, _ := count.Int64()
-	idkey := recordIdKey(prefix, id)
+	idkey := RecordIdKey(prefix, id)
 	return idkey
 }

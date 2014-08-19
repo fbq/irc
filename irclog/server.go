@@ -9,17 +9,10 @@ import (
 	"github.com/fbq/irc/bot"
 	"github.com/fzzy/radix/redis"
 	"github.com/drone/routes"
-)
-
-const (
-	redisServerAddress string = "127.0.0.1"
-	redisServerPort int = 6379
+	. "./lib"
 )
 
 var location *time.Location
-
-
-var ch chan bot.RawMsg
 
 func main() {
 	location, _ = time.LoadLocation("Asia/Shanghai")
@@ -33,7 +26,7 @@ func main() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", redisServerAddress, redisServerPort))
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 	defer client.Close()
 
 	if err != nil {
@@ -67,7 +60,7 @@ func channel(w http.ResponseWriter, r *http.Request) {
 	tmpl, _ := template.New("msg").Parse("{{.left}} {{.middle}} {{.right}}<br/>")
 	line := map[string]string{"left": "", "middle": "", "right": "",}
 	if isIn {
-		msgs, _ := client.Cmd("ZRANGE", key(key("channel", cname), "queue"), 0, -1).List()
+		msgs, _ := client.Cmd("ZRANGE", Key(Key("channel", cname), "queue"), 0, -1).List()
 		for _, msg := range msgs {
 			item, _ := client.Cmd("HGETALL", msg).Hash()
 			msgType, _ := strconv.Atoi(item["type"])
@@ -99,15 +92,4 @@ func channel(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Fprintf(w, "</html></body>")
-}
-func key(prefix, suffix string) string {
-	return fmt.Sprintf("%s:%s", prefix, suffix)
-}
-
-func countKey(prefix string) string {
-	return key(prefix, "count")
-}
-
-func recordIdKey(prefix string, id int64) string {
-	return key(prefix, fmt.Sprintf("record:%v", id))
 }
