@@ -8,15 +8,6 @@ import (
 )
 
 
-const (
-	server = "irc.freenode.net"
-	nick = "[Olaf-test]"
-	user = "Olaf"
-	info = "Olaf is a snow man, and see the log at http://xxxx" //TODO a url for the log
-	pass = ""
-	port = uint16(6666)
-)
-
 var channels []string=[]string{"archlinux-cn", "yssyd3"} //unfortunately go dose not support const array
 
 func hourAndMinute(t time.Time) string {
@@ -26,7 +17,13 @@ func hourAndMinute(t time.Time) string {
 func TestBot(t *testing.T) {
 	c := make(chan RawMsg)
 
-	go Bot(server, nick, pass, user, info, port, channels, c)
+	config, err := ConfigBotFromFile("config.json")
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
+
+	go Bot(config, c)
 	for {
 		raw := <-c
 		msg, err := ParseIRCMsg(raw.Time, raw.Line)

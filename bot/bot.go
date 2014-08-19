@@ -56,9 +56,9 @@ func Listen(conn net.Conn, channel chan RawMsg) {
 	}
 }
 
-func Bot(server, nick, pass, user, info string, port uint16, channels []string,  channel chan RawMsg) {
+func Bot(config *BotConfig, channel chan RawMsg) {
 	for { //infinite loop for reconnect
-		conn, err := Connect(server, nick, pass, user, info, port, channels)
+		conn, err := Connect(config.Server, config.Nick, config.Pass, config.User, config.Info, config.Port, config.Channels)
 		if err == nil {
 			Listen(conn, channel)
 		}

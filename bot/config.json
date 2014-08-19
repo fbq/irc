@@ -1,0 +1,9 @@
+{
+	"Server" : "irc.freenode.net",
+	"Nick" : "[Olaf-test]",
+	"User" : "Olaf",
+	"Info" : "Olaf is a snow man, and see the log at http://xxxx", 
+	"Pass" : "",
+	"Port" : 6666,
+	"Channels" : ["yssyd3", "archlinux-cn"]
+}
