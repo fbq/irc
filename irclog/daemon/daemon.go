@@ -5,10 +5,10 @@ import (
 	"time"
 	"strings"
 	"github.com/fbq/irc/bot"
+	. "github.com/fbq/irc/irclog"
 	"github.com/fzzy/radix/redis"
 	"log"
 	"os"
-	. "./lib"
 )
 
 

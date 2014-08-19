@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"html/template"
 	"github.com/fbq/irc/bot"
+	. "github.com/fbq/irc/irclog"
 	"github.com/fzzy/radix/redis"
 	"github.com/drone/routes"
-	. "./lib"
 )
 
 var location *time.Location
