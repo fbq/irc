@@ -6,57 +6,34 @@ import (
 	"time"
 	"net/http"
 	"html/template"
-	"strings"
 	"github.com/fbq/irc/bot"
 	"github.com/fzzy/radix/redis"
 	"github.com/drone/routes"
 )
 
 const (
-	redisConnStr string = "127.0.0.1:6379"
+	redisServerAddress string = "127.0.0.1"
+	redisServerPort int = 6379
 )
 
 var location *time.Location
 
-type BotConfig struct {
-	Server string
-	Nick string
-	Pass string
-	User string
-	Info string
-	Port uint16
-	Channels []string
-}
-
-var botConfig BotConfig = BotConfig{
-	"irc.freenode.net",
-	"[Olaf]",
-	"xxxx",
-	"bot",
-	"Olaf is a snow man",
-	6666,
-	[]string{"yssyd3", "archlinux-cn"},
-}
 
 var ch chan bot.RawMsg
 
 func main() {
 	location, _ = time.LoadLocation("Asia/Shanghai")
-	ch = make(chan bot.RawMsg)
-	go bot.Bot(botConfig.Server, botConfig.Nick, botConfig.Pass, botConfig.User,
-		botConfig.Info, botConfig.Port, botConfig.Channels, ch)
 
 	mux := routes.New()
 	mux.Get("/", index)
 	mux.Get("/channel/:cname", channel)
 
 	http.Handle("/", mux)
-	go daemon(ch)
 	http.ListenAndServe(":8080", nil)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	client, err := redis.Dial("tcp", "127.0.0.1:6379")
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", redisServerAddress, redisServerPort))
 	defer client.Close()
 
 	if err != nil {
@@ -85,6 +62,7 @@ func channel(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
 	isIn, _ := client.Cmd("SISMEMBER", "channels", cname).Bool()
+
 	fmt.Fprintf(w, "<!doctype html><html><body>")
 	tmpl, _ := template.New("msg").Parse("{{.left}} {{.middle}} {{.right}}<br/>")
 	line := map[string]string{"left": "", "middle": "", "right": "",}
@@ -132,61 +110,4 @@ func countKey(prefix string) string {
 
 func recordIdKey(prefix string, id int64) string {
 	return key(prefix, fmt.Sprintf("record:%v", id))
-}
-
-
-func daemon(ch chan bot.RawMsg) {
-	var client *redis.Client
-	client, err := redis.Dial("tcp", "127.0.0.1:6379")
-
-	if err != nil {
-		fmt.Printf("Connection to redis server failed\n")
-		return
-	}
-
-	defer client.Close()
-	for {
-		raw := <-ch
-		msg, err := bot.ParseIRCMsg(raw.Time, raw.Line)
-		if err != nil {
-			fmt.Printf("%v\n", err)
-			continue
-		}
-
-		sender := strings.Split(msg.Prefix, "!")[0]  //this is ok for server/user/empty
-
-		switch msg.Command {
-		case bot.PRIVMSG_CMD:
-			var prefix string
-			if msg.Parameters[0][0] == '#' {
-				prefix = key("channel", msg.Parameters[0][1:])
-				client.Cmd("SADD", "channels", msg.Parameters[0][1:])
-			} else {
-				prefix = key("nick", msg.Parameters[0])
-			}
-
-			id := allocMsgID(prefix, client)
-			queue := key(prefix, "queue")
-			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
-			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
-				"content", msg.Parameters[1], "sender", sender,
-				"type", msg.Command, "subtype", msg.SubCommand)
-		case bot.JOIN_CMD, bot.PART_CMD:
-			prefix := key("channel", msg.Parameters[0][1:]) //only channels can be part/join
-			id := allocMsgID(prefix, client)
-			queue := key(prefix, "queue")
-			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
-			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
-				"content", "", "sender", sender,
-				"type", msg.Command, "subtype", msg.SubCommand)
-		}
-	}
-}
-
-func allocMsgID(prefix string, client *redis.Client) string {
-	client.Cmd("SETNX", countKey(prefix), 0)
-	count := client.Cmd("INCR", countKey(prefix))
-	id, _ := count.Int64()
-	idkey := recordIdKey(prefix, id)
-	return idkey
 }
