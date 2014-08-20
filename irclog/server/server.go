@@ -60,7 +60,7 @@ func channel(w http.ResponseWriter, r *http.Request) {
 	tmpl, _ := template.New("msg").Parse("{{.left}} {{.middle}} {{.right}}<br/>")
 	line := map[string]string{"left": "", "middle": "", "right": "",}
 	if isIn {
-		msgs, _ := client.Cmd("ZRANGE", Key(Key("channel", cname), "queue"), 0, -1).List()
+		msgs, _ := client.Cmd("ZRANGE", Key("channel", cname, "queue"), 0, -1).List()
 		for _, msg := range msgs {
 			item, _ := client.Cmd("HGETALL", msg).Hash()
 			msgType, _ := strconv.Atoi(item["type"])

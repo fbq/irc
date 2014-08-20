@@ -1,6 +1,7 @@
 package irclog
 import (
-	"fmt"
+	"strings"
+	"strconv"
 )
 
 const (
@@ -8,8 +9,8 @@ const (
 	RedisServerPort int = 6379
 )
 
-func Key(prefix, suffix string) string {
-	return fmt.Sprintf("%s:%s", prefix, suffix)
+func Key(tokens ...string) string {
+	return strings.Join(tokens, ":")
 }
 
 func CountKey(prefix string) string {
@@ -17,5 +18,5 @@ func CountKey(prefix string) string {
 }
 
 func RecordIdKey(prefix string, id int64) string {
-	return Key(prefix, fmt.Sprintf("record:%v", id))
+	return Key(prefix, "record", strconv.FormatInt(id, 10))
 }

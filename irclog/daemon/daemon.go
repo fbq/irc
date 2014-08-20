@@ -79,6 +79,7 @@ func daemon(ch chan bot.RawMsg) {
 				"type", msg.Command, "subtype", msg.SubCommand)
 		case bot.JOIN_CMD, bot.PART_CMD:
 			prefix := Key("channel", msg.Parameters[0][1:]) //only channels can be part/join
+			client.Cmd("SADD", "channels", msg.Parameters[0][1:])
 			id := allocMsgID(prefix, client)
 			queue := Key(prefix, "queue")
 			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
