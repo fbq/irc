@@ -77,9 +77,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Channel: <a href='/channel/%s'>%s</a><br/>", channel, channel)
 		count := msgCount(channel)
 
-		for i := int64(0); i <= count; i += PAGE_SIZE {
+		for i := int64(0); i < count; i += PAGE_SIZE {
 			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>%v~%v</a> ", channel,
-				i / PAGE_SIZE, i, min(i+PAGE_SIZE-1, count))
+				i / PAGE_SIZE, i, min(i+PAGE_SIZE-1, count-1))
 		}
 		fmt.Fprintf(w, "<br/>")
 		fmt.Fprintf(w, "<br/>")
@@ -108,15 +108,27 @@ func pagedChannelMsg(w http.ResponseWriter, r *http.Request) {
 	pageNo, err := strconv.ParseInt(num, 10, 64)
 	if err == nil && validChannel(cname) {
 		fmt.Fprintf(w, "<!doctype html><html><body>")
-		if pageNo > 0 {
-			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Prev</a>", cname, pageNo-1)
-		}
+		count := msgCount(cname)
 
+		fmt.Fprintf(w, "<a href='/channel/%s/page/0'>First</a>", cname)
 		fmt.Fprintf(w, " ")
 
-		if count := msgCount(cname); count != -1 && count >= (pageNo + 1)* PAGE_SIZE {
-			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Next</a>", cname, pageNo+1)
+		if pageNo > 0 {
+			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Prev</a>", cname, pageNo-1)
+			fmt.Fprintf(w, " ")
 		}
+
+
+		if count != -1 && count >= (pageNo + 1)* PAGE_SIZE {
+			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Next</a>", cname, pageNo+1)
+			fmt.Fprintf(w, " ")
+		}
+		fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Last</a>", cname, count / PAGE_SIZE)
+		fmt.Fprintf(w, " ")
+
+		fmt.Fprintf(w, "<a href='/channel/%s'>Full</a>", cname)
+		fmt.Fprintf(w, " ")
+		fmt.Fprintf(w, "<a href='/'>Home</a>")
 		fmt.Fprintf(w, "<br/>\n")
 
 		channel(w, cname, pageNo * PAGE_SIZE, (pageNo + 1) * PAGE_SIZE)
