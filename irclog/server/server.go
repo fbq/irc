@@ -34,6 +34,7 @@ func main() {
 	mux.Get("/", index)
 	mux.Get("/channel/:cname", allChannelMsg)
 	mux.Get("/channel/:cname/page/:num", pagedChannelMsg)
+	mux.Get("/channel/:cname/date/:year/:month/:day", datedChannelMsg)
 
 	http.Handle("/", mux)
 	http.ListenAndServe(":8080", nil)
@@ -131,14 +132,30 @@ func pagedChannelMsg(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "<a href='/'>Home</a>")
 		fmt.Fprintf(w, "<br/>\n")
 
-		channel(w, cname, pageNo * PAGE_SIZE, (pageNo + 1) * PAGE_SIZE)
+		channel(w, cname, pageNo * PAGE_SIZE, (pageNo + 1) * PAGE_SIZE - 1)
 		fmt.Fprintf(w, "</html></body>")
 	} else {
-		fmt.Fprintf(w, `This channel is not logged now,
-			if you want to add this channel in to log, 
-			Ping fixme on freenode`)
+		fmt.Fprintf(w, "This channel is not logged now," +
+			"if you want to add this channel in to log," +
+			"Ping fixme on freenode")
 	}
+}
 
+func datedChannelMsg(w http.ResponseWriter, r *http.Request) {
+	//params := r.URL.Query()
+	//cname := params.Get(":cname")
+	//year := params.Get(":year")
+	//month := params.Get(":month")
+	//day := params.Get(":day")
+
+	//date, err := time.ParseInLocation("2006/01/02",
+	//	fmt.Sprintf("%s/%s/%s", year, month, day),
+	//	location)
+	//if err != nil {
+//		fmt.Fprintf(w, "wrong date format")
+//	}
+
+	//TODO: I'm too hungry to write code
 
 }
 func channel(w http.ResponseWriter, cname string, start, end int64) {
