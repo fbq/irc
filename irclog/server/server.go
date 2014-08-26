@@ -114,10 +114,10 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Fprintf(w, "By Date:<br/>\n")
 
-		for date := msgStartDate(channel); date.Before(msgEndDate(channel)); date = date.Add(oneDay) {
+		for date := msgStartDate(channel).Truncate(oneDay); !date.After(msgEndDate(channel)); date = date.Add(oneDay) {
 			fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>%s</a> ", channel,
-				date.Truncate(oneDay).Format("2006/01/02"),
-				date.Truncate(oneDay).Format("2006/01/02"))
+				date.Format("2006/01/02"),
+				date.Format("2006/01/02"))
 		}
 		fmt.Fprintf(w, "<br/>")
 
