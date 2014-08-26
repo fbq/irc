@@ -216,7 +216,7 @@ func datedChannelMsg(w http.ResponseWriter, r *http.Request) {
 
 	if date.AddDate(0, 0, 1).Before(end) {
 		fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>Next</a>",
-			cname, date.AddDate(0, 0, -1).Format("2006/01/02"))
+			cname, date.AddDate(0, 0, 1).Format("2006/01/02"))
 		fmt.Fprintf(w, " ")
 	}
 
