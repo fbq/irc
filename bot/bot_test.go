@@ -5,6 +5,7 @@ import (
 	"strings"
 	"fmt"
 	"testing"
+	"net"
 )
 
 
@@ -15,22 +16,17 @@ func hourAndMinute(t time.Time) string {
 }
 
 func TestBot(t *testing.T) {
-	c := make(chan RawMsg)
-
 	config, err := ConfigBotFromFile("config.json")
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return
 	}
 
-	go Bot(config, c)
-	for {
-		raw := <-c
-		msg, err := ParseIRCMsg(raw.Time, raw.Line)
-
+	Bot(config, func(t time.Time, line string, conn net.Conn) {
+		msg, err := ParseIRCMsg(t, line)
 		if err == nil && strings.Contains(msg.Prefix, "!") {
 			fmt.Printf("%s, %s, %s, %v, %v\n", hourAndMinute(msg.Time),
 				strings.Split(msg.Prefix, "!")[0], DMC[msg.Command], msg.SubCommand, msg.Parameters)
 		}
-	}
+	})
 }

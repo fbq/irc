@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"time"
+	"net"
 	"strings"
 	"github.com/fbq/irc/bot"
 	. "github.com/fbq/irc/irclog"
@@ -13,8 +14,6 @@ import (
 
 
 var location *time.Location
-
-var ch chan bot.RawMsg
 
 func main() {
 	configFile := "config.json"
@@ -28,19 +27,12 @@ func main() {
 		log.Printf("Config Error: %v\n", err)
 		return
 	}
-	ch = make(chan bot.RawMsg)
-	go bot.Bot(config, ch)
+	bot.Bot(config, daemon)
 
-	daemon(ch)
 }
 
 
-func daemonEnd(client *redis.Client) {
-	client.Close()
-	log.Printf("daemon: Daemon stopped\n")
-}
-
-func daemon(ch chan bot.RawMsg) {
+func daemon(t time.Time, line string, conn net.Conn) {
 	var client *redis.Client
 	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 
@@ -49,44 +41,41 @@ func daemon(ch chan bot.RawMsg) {
 		return
 	}
 
-	defer daemonEnd(client)
+	defer client.Close()
 
-	for {
-		raw := <-ch
-		msg, err := bot.ParseIRCMsg(raw.Time, raw.Line)
-		if err != nil {
-			fmt.Printf("loop: %v\n",  err)
-			continue
-		}
+	msg, err := bot.ParseIRCMsg(t, line)
+	if err != nil {
+		log.Printf("daemon: %v\n",  err)
+		return
+	}
 
-		sender := strings.Split(msg.Prefix, "!")[0]  //this is ok for server/user/empty
+	sender := strings.Split(msg.Prefix, "!")[0]  //this is ok for server/user/empty
 
-		switch msg.Command {
-		case bot.PRIVMSG_CMD:
-			var prefix string
-			if msg.Parameters[0][0] == '#' {
-				prefix = Key("channel", msg.Parameters[0][1:])
-				client.Cmd("SADD", "channels", msg.Parameters[0][1:])
-			} else {
-				prefix = Key("nick", msg.Parameters[0])
-			}
-
-			id := allocMsgID(prefix, client)
-			queue := Key(prefix, "queue")
-			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
-			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
-				"content", msg.Parameters[1], "sender", sender,
-				"type", msg.Command, "subtype", msg.SubCommand)
-		case bot.JOIN_CMD, bot.PART_CMD:
-			prefix := Key("channel", msg.Parameters[0][1:]) //only channels can be part/join
+	switch msg.Command {
+	case bot.PRIVMSG_CMD:
+		var prefix string
+		if msg.Parameters[0][0] == '#' {
+			prefix = Key("channel", msg.Parameters[0][1:])
 			client.Cmd("SADD", "channels", msg.Parameters[0][1:])
-			id := allocMsgID(prefix, client)
-			queue := Key(prefix, "queue")
-			client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
-			client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
-				"content", "", "sender", sender,
-				"type", msg.Command, "subtype", msg.SubCommand)
+		} else {
+			prefix = Key("nick", msg.Parameters[0])
 		}
+
+		id := allocMsgID(prefix, client)
+		queue := Key(prefix, "queue")
+		client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
+		client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
+			"content", msg.Parameters[1], "sender", sender,
+			"type", msg.Command, "subtype", msg.SubCommand)
+	case bot.JOIN_CMD, bot.PART_CMD:
+		prefix := Key("channel", msg.Parameters[0][1:]) //only channels can be part/join
+		client.Cmd("SADD", "channels", msg.Parameters[0][1:])
+		id := allocMsgID(prefix, client)
+		queue := Key(prefix, "queue")
+		client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
+		client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
+			"content", "", "sender", sender,
+			"type", msg.Command, "subtype", msg.SubCommand)
 	}
 }
 

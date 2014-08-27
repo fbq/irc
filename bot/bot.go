@@ -8,11 +8,6 @@ import (
 	"time"
 )
 
-type RawMsg struct {
-	Time time.Time
-	Line string
-}
-
 func Connect(server, nick, pass, user, info string, port uint16, channels []string) (conn net.Conn, err error){
 	address := fmt.Sprintf("%s:%v", server, port)
 
@@ -39,28 +34,31 @@ func Connect(server, nick, pass, user, info string, port uint16, channels []stri
 }
 
 
-func Listen(conn net.Conn, channel chan RawMsg) {
+type MsgHandler func(time.Time, string, net.Conn)
+
+func Listen(conn net.Conn, handler MsgHandler) {
 	reader := bufio.NewReader(conn)
 
 	for {
 		if line, err := reader.ReadString('\n'); err == nil {
+			now := time.Now()
 			tokens := strings.Fields(line)
 			if strings.EqualFold(tokens[0], "ping") {
 				fmt.Fprintf(conn, "pong")
 			}
 			//fmt.Printf("%s", line)
-			channel <- RawMsg{time.Now(), line}
+			go handler(now, line, conn)
 		} else {
 			break
 		}
 	}
 }
 
-func Bot(config *BotConfig, channel chan RawMsg) {
+func Bot(config *BotConfig, handler MsgHandler) {
 	for { //infinite loop for reconnect
 		conn, err := Connect(config.Server, config.Nick, config.Pass, config.User, config.Info, config.Port, config.Channels)
 		if err == nil {
-			Listen(conn, channel)
+			Listen(conn, handler)
 		}
 
 	}
