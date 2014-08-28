@@ -4,34 +4,25 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/fbq/irc/bot"
-	. "github.com/fbq/irc/irclog"
 	"github.com/fzzy/radix/redis"
 )
 
-var location *time.Location
-
-func main() {
-	configFile := "config.json"
-	if len(os.Args) >= 2 {
-		configFile = os.Args[1]
-	}
-
+func daemon(configFile string) {
 	config, err := bot.ConfigBotFromFile(configFile)
 
 	if err != nil {
 		log.Printf("Config Error: %v\n", err)
 		return
 	}
-	bot.Bot(config, daemon)
+	bot.Bot(config, daemonHandler)
 
 }
 
-func daemon(t time.Time, line string, conn net.Conn) {
+func daemonHandler(t time.Time, line string, conn net.Conn) {
 	var client *redis.Client
 	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 

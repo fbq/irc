@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/drone/routes"
-	"github.com/fbq/irc/bot"
-	. "github.com/fbq/irc/irclog"
-	"github.com/fzzy/radix/redis"
 	"html/template"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/drone/routes"
+	"github.com/fbq/irc/bot"
+	"github.com/fzzy/radix/redis"
 )
 
 var location *time.Location
@@ -28,7 +28,7 @@ func min(a, b int64) int64 {
 	}
 }
 
-func main() {
+func server() {
 	location, _ = time.LoadLocation("Asia/Shanghai")
 
 	oneDay, _ = time.ParseDuration("24h")
