@@ -2,16 +2,16 @@ package main
 
 import (
 	"fmt"
-	"time"
+	"log"
 	"net"
+	"os"
 	"strings"
+	"time"
+
 	"github.com/fbq/irc/bot"
 	. "github.com/fbq/irc/irclog"
 	"github.com/fzzy/radix/redis"
-	"log"
-	"os"
 )
-
 
 var location *time.Location
 
@@ -31,7 +31,6 @@ func main() {
 
 }
 
-
 func daemon(t time.Time, line string, conn net.Conn) {
 	var client *redis.Client
 	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
@@ -45,11 +44,11 @@ func daemon(t time.Time, line string, conn net.Conn) {
 
 	msg, err := bot.ParseIRCMsg(t, line)
 	if err != nil {
-		log.Printf("daemon: %v\n",  err)
+		log.Printf("daemon: %v\n", err)
 		return
 	}
 
-	sender := strings.Split(msg.Prefix, "!")[0]  //this is ok for server/user/empty
+	sender := strings.Split(msg.Prefix, "!")[0] //this is ok for server/user/empty
 
 	switch msg.Command {
 	case bot.PRIVMSG_CMD:

@@ -1,12 +1,13 @@
 package irclog
+
 import (
-	"strings"
 	"strconv"
+	"strings"
 )
 
 const (
 	RedisServerAddress string = "127.0.0.1"
-	RedisServerPort int = 6379
+	RedisServerPort    int    = 6379
 )
 
 func Key(tokens ...string) string {

@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"strconv"
-	"time"
-	"net/http"
-	"html/template"
+	"github.com/drone/routes"
 	"github.com/fbq/irc/bot"
 	. "github.com/fbq/irc/irclog"
 	"github.com/fzzy/radix/redis"
-	"github.com/drone/routes"
+	"html/template"
+	"net/http"
+	"strconv"
+	"time"
 )
 
 var location *time.Location
@@ -124,7 +124,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "By Page:<br/>\n")
 		for i := int64(0); i < count; i += PAGE_SIZE {
 			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>%v~%v</a> ", channel,
-				i / PAGE_SIZE, i, min(i+PAGE_SIZE-1, count-1))
+				i/PAGE_SIZE, i, min(i+PAGE_SIZE-1, count-1))
 		}
 		fmt.Fprintf(w, "<br/>")
 		fmt.Fprintf(w, "<br/>")
@@ -135,7 +135,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 func allChannelMsg(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
-	if (validChannel(cname)) {
+	if validChannel(cname) {
 		fmt.Fprintf(w, "<!doctype html><html><body>")
 		channel(w, cname, 0, -1, false)
 		fmt.Fprintf(w, "</html></body>")
@@ -163,12 +163,11 @@ func pagedChannelMsg(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, " ")
 		}
 
-
-		if count != -1 && count >= (pageNo + 1)* PAGE_SIZE {
+		if count != -1 && count >= (pageNo+1)*PAGE_SIZE {
 			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Next</a>", cname, pageNo+1)
 			fmt.Fprintf(w, " ")
 		}
-		fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Last</a>", cname, count / PAGE_SIZE)
+		fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Last</a>", cname, count/PAGE_SIZE)
 		fmt.Fprintf(w, " ")
 
 		fmt.Fprintf(w, "<a href='/channel/%s'>Full</a>", cname)
@@ -176,11 +175,11 @@ func pagedChannelMsg(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "<a href='/'>Home</a>")
 		fmt.Fprintf(w, "<br/>\n")
 
-		channel(w, cname, pageNo * PAGE_SIZE, (pageNo + 1) * PAGE_SIZE - 1, false)
+		channel(w, cname, pageNo*PAGE_SIZE, (pageNo+1)*PAGE_SIZE-1, false)
 		fmt.Fprintf(w, "</html></body>")
 	} else {
-		fmt.Fprintf(w, "This channel is not logged now," +
-			"if you want to add this channel in to log," +
+		fmt.Fprintf(w, "This channel is not logged now,"+
+			"if you want to add this channel in to log,"+
 			"Ping fixme on freenode")
 	}
 }
@@ -229,9 +228,8 @@ func datedChannelMsg(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<a href='/'>Home</a>")
 	fmt.Fprintf(w, "<br/>\n")
 
-	channel(w, cname, date.UnixNano(), date.AddDate(0, 0, 1).UnixNano() - 1, true)
+	channel(w, cname, date.UnixNano(), date.AddDate(0, 0, 1).UnixNano()-1, true)
 	fmt.Fprintf(w, "</html></body>")
-
 
 }
 func channel(w http.ResponseWriter, cname string, start, end int64, byScore bool) {
@@ -243,7 +241,7 @@ func channel(w http.ResponseWriter, cname string, start, end int64, byScore bool
 	}
 
 	tmpl, _ := template.New("msg").Parse("{{.left}} {{.middle}} {{.right}}<br/>")
-	line := map[string]string{"left": "", "middle": "", "right": "",}
+	line := map[string]string{"left": "", "middle": "", "right": ""}
 
 	var msgs []string
 	if byScore {
@@ -259,13 +257,13 @@ func channel(w http.ResponseWriter, cname string, start, end int64, byScore bool
 		t := time.Unix(0, nano)
 		line["left"] = t.In(location).Format(time.Stamp)
 
-		switch msgType{
+		switch msgType {
 		case bot.PRIVMSG_CMD:
 			if msgSubType == bot.CTCP_ACTION_SUB {
 				line["middle"] = fmt.Sprintf("---ACTION:")
 				line["right"] = fmt.Sprintf("%s %s", item["sender"], item["content"])
 			} else {
-				line["middle"] = fmt.Sprintf("<%s>",item["sender"])
+				line["middle"] = fmt.Sprintf("<%s>", item["sender"])
 				line["right"] = item["content"]
 			}
 		case bot.JOIN_CMD:
@@ -275,11 +273,9 @@ func channel(w http.ResponseWriter, cname string, start, end int64, byScore bool
 			line["middle"] = fmt.Sprintf("---PART:")
 			line["right"] = fmt.Sprintf("%s PART %s", item["sender"], cname)
 		default:
-			line["middle"] = fmt.Sprintf("<%s>",item["sender"])
+			line["middle"] = fmt.Sprintf("<%s>", item["sender"])
 			line["right"] = fmt.Sprintf("%s %s", bot.DMC[msgType], item["content"])
 		}
 		tmpl.Execute(w, line)
 	}
 }
-
-

@@ -1,15 +1,14 @@
 package bot
 
 import (
-	"time"
-	"strings"
 	"fmt"
-	"testing"
 	"net"
+	"strings"
+	"testing"
+	"time"
 )
 
-
-var channels []string=[]string{"archlinux-cn", "yssyd3"} //unfortunately go dose not support const array
+var channels []string = []string{"archlinux-cn", "yssyd3"} //unfortunately go dose not support const array
 
 func hourAndMinute(t time.Time) string {
 	return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())

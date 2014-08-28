@@ -1,8 +1,8 @@
 package bot
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -10,9 +10,9 @@ import (
  * irc message according to RFC 1459
  */
 type IRCMsg struct {
-	Time time.Time
-	Prefix string //indicate who send out the message
-	Command int
+	Time       time.Time
+	Prefix     string //indicate who send out the message
+	Command    int
 	SubCommand int
 	Parameters []string
 }
@@ -39,7 +39,7 @@ func ParseIRCMsg(time time.Time, line string) (msg IRCMsg, err error) {
 	var index int
 	/* prefix */
 	if strings.HasPrefix(tokens[0], ":") { // has prefix
-		if len(tokens[0]) == 1 {   // space right after colon is invalid (RFC 1459 2.3)
+		if len(tokens[0]) == 1 { // space right after colon is invalid (RFC 1459 2.3)
 			err = &InvalidIRCMsgError{"wrong prefix"}
 			return
 		}
@@ -64,7 +64,7 @@ func ParseIRCMsg(time time.Time, line string) (msg IRCMsg, err error) {
 	/* count how many paratmeter */
 	index2 := index
 	count := 0
-	for ; index2 <len(tokens); index2++ {
+	for ; index2 < len(tokens); index2++ {
 		if tokens[index2] != "" {
 			count++
 			if strings.HasPrefix(tokens[index2], ":") {

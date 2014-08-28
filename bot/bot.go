@@ -1,14 +1,14 @@
 package bot
 
 import (
-	"net"
-	"fmt"
 	"bufio"
+	"fmt"
+	"net"
 	"strings"
 	"time"
 )
 
-func Connect(server, nick, pass, user, info string, port uint16, channels []string) (conn net.Conn, err error){
+func Connect(server, nick, pass, user, info string, port uint16, channels []string) (conn net.Conn, err error) {
 	address := fmt.Sprintf("%s:%v", server, port)
 
 	conn, err = net.Dial("tcp", address)
@@ -30,9 +30,8 @@ func Connect(server, nick, pass, user, info string, port uint16, channels []stri
 		}
 	}
 
-	return;
+	return
 }
-
 
 type MsgHandler func(time.Time, string, net.Conn)
 

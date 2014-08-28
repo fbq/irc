@@ -6,12 +6,12 @@ import (
 )
 
 type BotConfig struct {
-	Server string
-	Nick string
-	Pass string
-	User string
-	Info string
-	Port uint16
+	Server   string
+	Nick     string
+	Pass     string
+	User     string
+	Info     string
+	Port     uint16
 	Channels []string
 }
 
@@ -35,4 +35,3 @@ func ConfigBotFromFile(path string) (*BotConfig, error) {
 	return &configuration, nil
 
 }
-
