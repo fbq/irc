@@ -2,13 +2,11 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/drone/routes"
-	"github.com/fbq/irc/bot"
 	"github.com/fzzy/radix/redis"
 )
 
@@ -35,9 +33,9 @@ func server() {
 
 	mux := routes.New()
 	mux.Get("/", index)
-	mux.Get("/channel/:cname", allChannelMsg)
-	mux.Get("/channel/:cname/page/:num", pagedChannelMsg)
-	mux.Get("/channel/:cname/date/:year/:month/:day", datedChannelMsg)
+	mux.Get("/channel/:cname", allChannelMsgPage)
+	mux.Get("/channel/:cname/page/:num", pagedChannelMsgPage)
+	mux.Get("/channel/:cname/date/:year/:month/:day", datedChannelMsgPage)
 
 	http.Handle("/", mux)
 	http.ListenAndServe(":8080", nil)
@@ -132,59 +130,31 @@ func index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "</html></body>")
 }
 
-func allChannelMsg(w http.ResponseWriter, r *http.Request) {
+func allChannelMsgPage(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
+	writer := NewHtmlLogWriter(w, location)
 	if validChannel(cname) {
-		fmt.Fprintf(w, "<!doctype html><html><body>")
-		channel(w, cname, 0, -1, false)
-		fmt.Fprintf(w, "</html></body>")
+		WriteAllMsgInChannel(writer, cname)
 	} else {
-		fmt.Fprintf(w, `This channel is not logged now,
-			if you want to add this channel in to log, 
-			Ping fixme on freenode`)
+		http.NotFound(w, r)
 	}
 }
 
-func pagedChannelMsg(w http.ResponseWriter, r *http.Request) {
+func pagedChannelMsgPage(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
 	num := params.Get(":num")
 	pageNo, err := strconv.ParseInt(num, 10, 64)
+	writer := NewHtmlLogWriter(w, location)
 	if err == nil && validChannel(cname) {
-		fmt.Fprintf(w, "<!doctype html><html><body>")
-		count := msgCount(cname)
-
-		fmt.Fprintf(w, "<a href='/channel/%s/page/0'>First</a>", cname)
-		fmt.Fprintf(w, " ")
-
-		if pageNo > 0 {
-			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Prev</a>", cname, pageNo-1)
-			fmt.Fprintf(w, " ")
-		}
-
-		if count != -1 && count >= (pageNo+1)*PAGE_SIZE {
-			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Next</a>", cname, pageNo+1)
-			fmt.Fprintf(w, " ")
-		}
-		fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>Last</a>", cname, count/PAGE_SIZE)
-		fmt.Fprintf(w, " ")
-
-		fmt.Fprintf(w, "<a href='/channel/%s'>Full</a>", cname)
-		fmt.Fprintf(w, " ")
-		fmt.Fprintf(w, "<a href='/'>Home</a>")
-		fmt.Fprintf(w, "<br/>\n")
-
-		channel(w, cname, pageNo*PAGE_SIZE, (pageNo+1)*PAGE_SIZE-1, false)
-		fmt.Fprintf(w, "</html></body>")
+		WriteMsgInChannelByPage(writer, cname, pageNo)
 	} else {
-		fmt.Fprintf(w, "This channel is not logged now,"+
-			"if you want to add this channel in to log,"+
-			"Ping fixme on freenode")
+		http.NotFound(w, r)
 	}
 }
 
-func datedChannelMsg(w http.ResponseWriter, r *http.Request) {
+func datedChannelMsgPage(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
 	year := params.Get(":year")
@@ -194,54 +164,95 @@ func datedChannelMsg(w http.ResponseWriter, r *http.Request) {
 	date, err := time.ParseInLocation("2006/01/02",
 		fmt.Sprintf("%s/%s/%s", year, month, day),
 		location)
-	if err != nil {
-		fmt.Fprintf(w, "wrong date format")
+	if err == nil && validChannel(cname) {
+		writer := NewHtmlLogWriter(w, location)
+		WriteMsgInChannelByDate(writer, cname, date)
+	} else {
+		http.NotFound(w, r)
 	}
 
+}
+
+func WriteAllMsgInChannel(writer LogWriter, cname string) {
+	writer.Begin()
+	channel(writer, cname, 0, -1, false)
+	writer.End()
+}
+
+func WriteMsgInChannelByPage(writer LogWriter, cname string, pageNo int64) {
+	count := msgCount(cname)
+
+	writer.Begin()
+	writer.Link("First", fmt.Sprintf("/channel/%s/page/0", cname))
+	writer.Space()
+
+	if pageNo > 0 {
+		writer.Link("Prev", fmt.Sprintf("/channel/%s/page/%v", cname, pageNo-1))
+		writer.Space()
+	}
+
+	if count != -1 && count >= (pageNo+1)*PAGE_SIZE {
+		writer.Link("Next", fmt.Sprintf("/channel/%s/page/%v", cname, pageNo+1))
+		writer.Space()
+	}
+	writer.Link("Last", fmt.Sprintf("/channel/%s/page/%v", cname, count/PAGE_SIZE))
+	writer.Space()
+
+	writer.Link("Full", fmt.Sprintf("/channel/%s", cname))
+	writer.Space()
+	writer.Link("Home", "/")
+	writer.NewLine()
+
+	channel(writer, cname, pageNo*PAGE_SIZE, (pageNo+1)*PAGE_SIZE-1, false)
+	writer.End()
+}
+
+func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 	start := msgStartDate(cname)
 	end := msgEndDate(cname)
 
-	fmt.Fprintf(w, "<!doctype html><html><body>")
+	writer.Begin()
 
-	fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>First</a>",
-		cname, start.Truncate(oneDay).Format("2006/01/02"))
-	fmt.Fprintf(w, " ")
+	writer.Link("First",
+		fmt.Sprintf("/channel/%s/date/%s",
+			cname, start.Truncate(oneDay).Format("2006/01/02")))
+	writer.Space()
 
 	if date.After(start) {
-		fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>Prev</a>",
-			cname, date.AddDate(0, 0, -1).Format("2006/01/02"))
-		fmt.Fprintf(w, " ")
+		writer.Link("Prev",
+			fmt.Sprintf("/channel/%s/date/%s",
+				cname, date.AddDate(0, 0, -1).Format("2006/01/02")))
+		writer.Space()
 	}
 
 	if date.AddDate(0, 0, 1).Before(end) {
-		fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>Next</a>",
-			cname, date.AddDate(0, 0, 1).Format("2006/01/02"))
-		fmt.Fprintf(w, " ")
+		writer.Link("Next",
+			fmt.Sprintf("/channel/%s/date/%s",
+				cname, date.AddDate(0, 0, 1).Format("2006/01/02")))
+		writer.Space()
 	}
 
-	fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>Last</a>",
-		cname, end.Truncate(oneDay).Format("2006/01/02"))
-	fmt.Fprintf(w, " ")
+	writer.Link("Last",
+		fmt.Sprintf("/channel/%s/date/%s",
+			cname, end.Truncate(oneDay).Format("2006/01/02")))
+	writer.Space()
 
-	fmt.Fprintf(w, "<a href='/channel/%s'>Full</a>", cname)
-	fmt.Fprintf(w, " ")
-	fmt.Fprintf(w, "<a href='/'>Home</a>")
-	fmt.Fprintf(w, "<br/>\n")
+	writer.Link("Full", fmt.Sprintf("/channel/%s", cname))
+	writer.Space()
+	writer.Link("Home", "/")
+	writer.NewLine()
 
-	channel(w, cname, date.UnixNano(), date.AddDate(0, 0, 1).UnixNano()-1, true)
-	fmt.Fprintf(w, "</html></body>")
-
+	channel(writer, cname, date.UnixNano(), date.AddDate(0, 0, 1).UnixNano()-1, true)
+	writer.End()
 }
-func channel(w http.ResponseWriter, cname string, start, end int64, byScore bool) {
+
+func channel(writer LogWriter, cname string, start, end int64, byScore bool) {
 	client, err := redis.Dial("tcp", "127.0.0.1:6379")
 	defer client.Close()
 
 	if err != nil {
 		return
 	}
-
-	tmpl, _ := template.New("msg").Parse("{{.left}} {{.middle}} {{.right}}<br/>")
-	line := map[string]string{"left": "", "middle": "", "right": ""}
 
 	var msgs []string
 	if byScore {
@@ -254,28 +265,13 @@ func channel(w http.ResponseWriter, cname string, start, end int64, byScore bool
 		msgType, _ := strconv.Atoi(item["type"])
 		msgSubType, _ := strconv.Atoi(item["subtype"])
 		nano, _ := strconv.ParseInt(item["time"], 10, 64)
-		t := time.Unix(0, nano)
-		line["left"] = t.In(location).Format(time.Stamp)
+		m := LogMsg{Time: time.Unix(0, nano),
+			Command:    msgType,
+			SubCommand: msgSubType,
+			Content:    item["content"],
+			Sender:     item["sender"],
+			Receiver:   cname}
 
-		switch msgType {
-		case bot.PRIVMSG_CMD:
-			if msgSubType == bot.CTCP_ACTION_SUB {
-				line["middle"] = fmt.Sprintf("---ACTION:")
-				line["right"] = fmt.Sprintf("%s %s", item["sender"], item["content"])
-			} else {
-				line["middle"] = fmt.Sprintf("<%s>", item["sender"])
-				line["right"] = item["content"]
-			}
-		case bot.JOIN_CMD:
-			line["middle"] = fmt.Sprintf("---JOIN:")
-			line["right"] = fmt.Sprintf("%s JOIN %s", item["sender"], cname)
-		case bot.PART_CMD:
-			line["middle"] = fmt.Sprintf("---PART:")
-			line["right"] = fmt.Sprintf("%s PART %s", item["sender"], cname)
-		default:
-			line["middle"] = fmt.Sprintf("<%s>", item["sender"])
-			line["right"] = fmt.Sprintf("%s %s", bot.DMC[msgType], item["content"])
-		}
-		tmpl.Execute(w, line)
+		writer.Msg(&m).NewLine()
 	}
 }

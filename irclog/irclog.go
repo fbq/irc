@@ -5,12 +5,88 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/fbq/irc/bot"
+	"github.com/fzzy/radix/redis"
 )
 
 const (
 	RedisServerAddress string = "127.0.0.1"
 	RedisServerPort    int    = 6379
 )
+
+type LogMsg struct {
+	Sender     string
+	Receiver   string
+	Content    string
+	Command    int
+	SubCommand int
+	Time       time.Time
+	ToUser     bool
+}
+
+// one-way convert function from a IRC msg to a log msg
+func MsgIRC2Log(msg *bot.IRCMsg) (logMsg LogMsg) {
+	logMsg.Sender = strings.Split(msg.Prefix, "!")[0] //this is ok for server/user/empty
+	logMsg.Time = msg.Time
+	logMsg.Command = msg.Command
+	logMsg.SubCommand = msg.SubCommand
+
+	switch msg.Command {
+	case bot.PRIVMSG_CMD:
+		if msg.Parameters[0][0] == '#' {
+			logMsg.Receiver = msg.Parameters[0][1:]
+		} else {
+			logMsg.Receiver = msg.Parameters[0]
+			logMsg.ToUser = true
+		}
+
+		logMsg.Content = msg.Parameters[1]
+	case bot.JOIN_CMD, bot.PART_CMD:
+		logMsg.Receiver = msg.Parameters[0][1:] //only channels can be part/join
+	}
+	return
+}
+
+func allocMsgID(prefix string, client *redis.Client) string {
+	client.Cmd("SETNX", CountKey(prefix), 0)
+	count := client.Cmd("INCR", CountKey(prefix))
+	id, _ := count.Int64()
+	idkey := RecordIdKey(prefix, id)
+	return idkey
+}
+
+func allocMsgIDandStore(prefix string, msg *LogMsg, client *redis.Client) {
+	id := allocMsgID(prefix, client)
+	queue := Key(prefix, "queue")
+	client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
+	client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
+		"content", msg.Content, "sender", msg.Sender,
+		"type", msg.Command, "subtype", msg.SubCommand)
+}
+func StoreLogMsg(client *redis.Client, msg *LogMsg) {
+	var prefix string
+	switch msg.Command {
+	case bot.PRIVMSG_CMD:
+		if msg.ToUser {
+			prefix = Key("nick", msg.Receiver)
+		} else {
+			prefix = Key("channel", msg.Receiver)
+		}
+
+		client.Cmd("SADD", "channels", msg.Receiver)
+
+		allocMsgIDandStore(prefix, msg, client)
+
+	case bot.JOIN_CMD, bot.PART_CMD:
+		prefix := Key("channel", msg.Receiver) //only channels can be part/join
+
+		client.Cmd("SADD", "channels", msg.Receiver)
+
+		allocMsgIDandStore(prefix, msg, client)
+	}
+}
 
 func Key(tokens ...string) string {
 	return strings.Join(tokens, ":")

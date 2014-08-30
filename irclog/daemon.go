@@ -18,7 +18,7 @@ func daemon(configFile string) {
 		log.Printf("Config Error: %v\n", err)
 		return
 	}
-	bot.Bot(config, daemonHandler)
+	bot.Bot(config, simpleHandler)
 
 }
 
@@ -69,10 +69,24 @@ func daemonHandler(t time.Time, line string, conn net.Conn) {
 	}
 }
 
-func allocMsgID(prefix string, client *redis.Client) string {
-	client.Cmd("SETNX", CountKey(prefix), 0)
-	count := client.Cmd("INCR", CountKey(prefix))
-	id, _ := count.Int64()
-	idkey := RecordIdKey(prefix, id)
-	return idkey
+func simpleHandler(t time.Time, line string, conn net.Conn) {
+	var client *redis.Client
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
+
+	if err != nil {
+		log.Printf("daemon: Connection to redis server failed\n")
+		return
+	}
+
+	defer client.Close()
+
+	msg, err := bot.ParseIRCMsg(t, line)
+	if err != nil {
+		log.Printf("daemon: %v\n", err)
+		return
+	}
+
+	logMsg := MsgIRC2Log(&msg)
+
+	StoreLogMsg(client, &logMsg)
 }
