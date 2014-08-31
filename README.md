@@ -7,9 +7,14 @@ STATUS: under developing
 
 * `github.com/fbq/irc/bot` is a library for developing an irc bot
 * `github.com/fbq/irc/irclog` is a web server for log in irc channels
+    * USEAGE
+        * Run a irc bot to collect irc messages, run `irclog daemon <config file>`,
+          the config file is a json-format config for irc bot
+        * Run a web server to show the log, run `irclog server`, however `irclog` is also default for runing server
+
     * TODO
-        * join/quit and other msg support
-        * a better data structure for log records
+        * <del>join/quit and other msg support</del>
+        * <del>a better data structure for log records</del>
         * err handling
         * search
         * chat via web
