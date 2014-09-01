@@ -33,9 +33,9 @@ func server() {
 
 	mux := routes.New()
 	mux.Get("/", index)
-	mux.Get("/channel/:cname", allChannelMsgPage)
-	mux.Get("/channel/:cname/page/:num", pagedChannelMsgPage)
-	mux.Get("/channel/:cname/date/:year/:month/:day", datedChannelMsgPage)
+	mux.Get(":format(/json)?/channel/:cname", allChannelMsg)
+	mux.Get(":format(/json)?/channel/:cname/page/:num", pagedChannelMsg)
+	mux.Get(":format(/json)?/channel/:cname/date/:year/:month/:day", datedChannelMsg)
 
 	http.Handle("/", mux)
 	http.ListenAndServe(":8080", nil)
@@ -130,31 +130,46 @@ func index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "</html></body>")
 }
 
-func allChannelMsgPage(w http.ResponseWriter, r *http.Request) {
+func allChannelMsg(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
-	writer := NewHtmlLogWriter(w, location)
 	if validChannel(cname) {
+		format := params.Get(":format")
+
+		var writer LogWriter
+		if format == "/json" {
+			writer = NewJsonLogWriter(w)
+		} else {
+			writer = NewHtmlLogWriter(w, location)
+		}
 		WriteAllMsgInChannel(writer, cname)
 	} else {
 		http.NotFound(w, r)
 	}
 }
 
-func pagedChannelMsgPage(w http.ResponseWriter, r *http.Request) {
+func pagedChannelMsg(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
 	num := params.Get(":num")
 	pageNo, err := strconv.ParseInt(num, 10, 64)
-	writer := NewHtmlLogWriter(w, location)
+
 	if err == nil && validChannel(cname) {
+		format := params.Get(":format")
+		var writer LogWriter
+		if format == "/json" {
+			writer = NewJsonLogWriter(w)
+		} else {
+			writer = NewHtmlLogWriter(w, location)
+		}
+
 		WriteMsgInChannelByPage(writer, cname, pageNo)
 	} else {
 		http.NotFound(w, r)
 	}
 }
 
-func datedChannelMsgPage(w http.ResponseWriter, r *http.Request) {
+func datedChannelMsg(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	cname := params.Get(":cname")
 	year := params.Get(":year")
@@ -165,7 +180,14 @@ func datedChannelMsgPage(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("%s/%s/%s", year, month, day),
 		location)
 	if err == nil && validChannel(cname) {
-		writer := NewHtmlLogWriter(w, location)
+		format := params.Get(":format")
+
+		var writer LogWriter
+		if format == "/json" {
+			writer = NewJsonLogWriter(w)
+		} else {
+			writer = NewHtmlLogWriter(w, location)
+		}
 		WriteMsgInChannelByDate(writer, cname, date)
 	} else {
 		http.NotFound(w, r)
@@ -175,6 +197,8 @@ func datedChannelMsgPage(w http.ResponseWriter, r *http.Request) {
 
 func WriteAllMsgInChannel(writer LogWriter, cname string) {
 	writer.Begin()
+	writer.Link("Json", fmt.Sprintf("/json/channel/%s", cname))
+	writer.NewLine()
 	channel(writer, cname, 0, -1, false)
 	writer.End()
 }
@@ -201,6 +225,8 @@ func WriteMsgInChannelByPage(writer LogWriter, cname string, pageNo int64) {
 	writer.Link("Full", fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Home", "/")
+	writer.Space()
+	writer.Link("Json", fmt.Sprintf("/json/channel/%s/page/%v", cname, pageNo))
 	writer.NewLine()
 
 	channel(writer, cname, pageNo*PAGE_SIZE, (pageNo+1)*PAGE_SIZE-1, false)
@@ -240,6 +266,8 @@ func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 	writer.Link("Full", fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Home", "/")
+	writer.Space()
+	writer.Link("Json", fmt.Sprintf("/json/channel/%s/date/%s", cname, date.Format("2006/01/02")))
 	writer.NewLine()
 
 	channel(writer, cname, date.UnixNano(), date.AddDate(0, 0, 1).UnixNano()-1, true)
@@ -260,6 +288,8 @@ func channel(writer LogWriter, cname string, start, end int64, byScore bool) {
 	} else {
 		msgs, _ = client.Cmd("ZRANGE", Key("channel", cname, "queue"), start, end).List()
 	}
+
+	writer.BeginItemize("msgs")
 	for _, msg := range msgs {
 		item, _ := client.Cmd("HGETALL", msg).Hash()
 		msgType, _ := strconv.Atoi(item["type"])
@@ -274,4 +304,5 @@ func channel(writer LogWriter, cname string, start, end int64, byScore bool) {
 
 		writer.Msg(&m).NewLine()
 	}
+	writer.EndItemize("msgs")
 }

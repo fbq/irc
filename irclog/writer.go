@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -12,11 +13,17 @@ import (
 type LogWriter interface {
 	Begin() LogWriter
 	End() LogWriter
+	BeginContext(name string) LogWriter
+	EndContext(name string) LogWriter
+	BeginItemize(name string) LogWriter
+	EndItemize(name string) LogWriter
 	Msg(msg *LogMsg) LogWriter
 	Link(name, address string) LogWriter
 	Space() LogWriter
 	NewLine() LogWriter
 }
+
+/* HTML Log Writer */
 
 type HtmlLogWriter struct {
 	writer   io.Writer
@@ -31,12 +38,28 @@ func NewHtmlLogWriter(writer io.Writer, location *time.Location) LogWriter {
 }
 
 func (w *HtmlLogWriter) Begin() LogWriter {
-	fmt.Fprintf(w.writer, "<!doctype html><html><body>")
-	return w
+	return w.BeginContext("!doctype html").BeginContext("html").BeginContext("body")
 }
 
 func (w *HtmlLogWriter) End() LogWriter {
-	fmt.Fprintf(w.writer, "</body></html>")
+	return w.EndContext("body").EndContext("html")
+}
+
+func (w *HtmlLogWriter) BeginItemize(name string) LogWriter {
+	return w
+}
+
+func (w *HtmlLogWriter) EndItemize(name string) LogWriter {
+	return w
+}
+
+func (w *HtmlLogWriter) BeginContext(name string) LogWriter {
+	fmt.Fprintf(w.writer, "<%s>\n", name)
+	return w
+}
+
+func (w *HtmlLogWriter) EndContext(name string) LogWriter {
+	fmt.Fprintf(w.writer, "</%s>\n", name)
 	return w
 }
 
@@ -81,5 +104,93 @@ func (w *HtmlLogWriter) Msg(msg *LogMsg) LogWriter {
 		line["right"] = fmt.Sprintf("%s %s", bot.DMC[msg.Command], msg.Content)
 	}
 	w.tmpl.Execute(w.writer, line)
+	return w
+}
+
+/* Json Log Writer */
+
+const (
+	HEAD = iota
+	MIDDLE
+)
+
+type JsonLogWriter struct {
+	writer  io.Writer
+	encoder *json.Encoder
+	state   int
+}
+
+func NewJsonLogWriter(writer io.Writer) LogWriter {
+	return &JsonLogWriter{writer, json.NewEncoder(writer), 0}
+}
+
+func (w *JsonLogWriter) Begin() LogWriter {
+	fmt.Fprintf(w.writer, "{\n")
+	w.state = HEAD
+	return w
+}
+
+func (w *JsonLogWriter) End() LogWriter {
+	fmt.Fprintf(w.writer, "}\n")
+	return w
+}
+
+func (w *JsonLogWriter) BeginContext(name string) LogWriter {
+	if w.state != HEAD {
+		fmt.Fprintf(w.writer, ",")
+	}
+	fmt.Fprintf(w.writer, "\"%s\" :\n", name)
+	//FIXME handle nested context
+	w.state = HEAD
+	return w
+}
+
+func (w *JsonLogWriter) EndContext(name string) LogWriter {
+	if w.state == HEAD {
+		fmt.Fprintf(w.writer, "0")
+	}
+	w.state = MIDDLE
+	return w
+}
+
+func (w *JsonLogWriter) BeginItemize(name string) LogWriter {
+	w.BeginContext(name)
+	fmt.Fprintf(w.writer, "[\n")
+	return w
+}
+
+func (w *JsonLogWriter) EndItemize(name string) LogWriter {
+	fmt.Fprintf(w.writer, "]\n")
+	w.state = MIDDLE
+	return w
+}
+
+// Space and NewLine are meaningless for json
+func (w *JsonLogWriter) Space() LogWriter {
+	return w
+}
+
+func (w *JsonLogWriter) NewLine() LogWriter {
+	return w
+}
+
+func (w *JsonLogWriter) Link(name string, address string) LogWriter {
+	w.BeginContext(name)
+	w.jsonObject(address)
+	w.EndContext(name)
+	return w
+}
+
+func (w *JsonLogWriter) Msg(msg *LogMsg) LogWriter {
+	w.jsonObject(msg)
+	return w
+}
+
+func (w *JsonLogWriter) jsonObject(o interface{}) LogWriter {
+	if w.state != HEAD {
+		fmt.Fprintf(w.writer, ",")
+	}
+	w.encoder.Encode(o)
+	w.state = MIDDLE
 	return w
 }
