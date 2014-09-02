@@ -23,7 +23,7 @@ type LogMsg struct {
 	Command    int
 	SubCommand int
 	Time       time.Time
-	ToUser     bool
+	ToUser     bool `json:"-"`
 }
 
 // one-way convert function from a IRC msg to a log msg
