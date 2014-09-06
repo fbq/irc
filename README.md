@@ -11,6 +11,9 @@ STATUS: under developing
         * Run a irc bot to collect irc messages, run `irclog daemon <config file>`,
           the config file is a json-format config for irc bot
         * Run a web server to show the log, run `irclog server`, however `irclog` is also default for runing server
+    * LogWriter
+        * Log writer is an interface that abstract the output structure of irc log msg
+	* To output the log msgs in the different format, just implement another LogWriter
 
     * TODO
         * <del>join/quit and other msg support</del>
