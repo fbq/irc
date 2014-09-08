@@ -26,6 +26,17 @@ type LogMsg struct {
 	ToUser     bool `json:"-"`
 }
 
+// Poor golang, can not truncate in other zone
+func TruncateInLocation(t time.Time, d time.Duration) time.Time {
+	_, offset := t.Zone()
+	if offset == 0 {
+		return t.Truncate(d)
+	} else {
+		duration := time.Duration(offset) * time.Second
+		return t.Add(duration).Truncate(d).Add(-duration)
+	}
+}
+
 // one-way convert function from a IRC msg to a log msg
 func MsgIRC2Log(msg *bot.IRCMsg) (logMsg LogMsg) {
 	logMsg.Sender = strings.Split(msg.Prefix, "!")[0] //this is ok for server/user/empty

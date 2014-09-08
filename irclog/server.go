@@ -112,7 +112,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Fprintf(w, "By Date:<br/>\n")
 
-		for date := msgStartDate(channel).Truncate(oneDay); !date.After(msgEndDate(channel)); date = date.Add(oneDay) {
+		for date := TruncateInLocation(msgStartDate(channel), oneDay); !date.After(msgEndDate(channel)); date = date.Add(oneDay) {
 			fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>%s</a> ", channel,
 				date.Format("2006/01/02"),
 				date.Format("2006/01/02"))
@@ -241,7 +241,7 @@ func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 
 	writer.Link("First",
 		fmt.Sprintf("/channel/%s/date/%s",
-			cname, start.Truncate(oneDay).Format("2006/01/02")))
+			cname, TruncateInLocation(start, oneDay).Format("2006/01/02")))
 	writer.Space()
 
 	if date.After(start) {
@@ -260,7 +260,7 @@ func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 
 	writer.Link("Last",
 		fmt.Sprintf("/channel/%s/date/%s",
-			cname, end.Truncate(oneDay).Format("2006/01/02")))
+			cname, TruncateInLocation(end, oneDay).Format("2006/01/02")))
 	writer.Space()
 
 	writer.Link("Full", fmt.Sprintf("/channel/%s", cname))
