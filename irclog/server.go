@@ -42,7 +42,7 @@ func server() {
 }
 
 func validChannel(cname string) bool {
-	client, err := redis.Dial("tcp", "127.0.0.1:6379")
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 	defer client.Close()
 
 	valid, err := client.Cmd("SISMEMBER", "channels", cname).Bool()
@@ -53,7 +53,7 @@ func validChannel(cname string) bool {
 }
 
 func msgCount(cname string) int64 {
-	client, err := redis.Dial("tcp", "127.0.0.1:6379")
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 	defer client.Close()
 	// ZCARD is O(1) operation
 	num, err := client.Cmd("ZCARD", Key("channel", cname, "queue")).Int64()
@@ -65,7 +65,7 @@ func msgCount(cname string) int64 {
 }
 
 func msgDate(cname string, index int64) time.Time {
-	client, err := redis.Dial("tcp", "127.0.0.1:6379")
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 	defer client.Close()
 
 	msgs, err := client.Cmd("ZRANGE", Key("channel", cname, "queue"), index, index).List()
@@ -275,7 +275,7 @@ func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 }
 
 func channel(writer LogWriter, cname string, start, end int64, byScore bool) {
-	client, err := redis.Dial("tcp", "127.0.0.1:6379")
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 	defer client.Close()
 
 	if err != nil {
