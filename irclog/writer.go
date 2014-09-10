@@ -100,6 +100,9 @@ func (w *HtmlLogWriter) Msg(msg *LogMsg) LogWriter {
 	case bot.PART_CMD:
 		line["middle"] = fmt.Sprintf("---PART:")
 		line["right"] = fmt.Sprintf("%s PART %s", msg.Sender, msg.Receiver)
+	case bot.KICK_CMD:
+		line["middle"] = fmt.Sprintf("---KICK:")
+		line["right"] = fmt.Sprintf("%s %s", msg.Sender, msg.Content)
 	default:
 		line["middle"] = fmt.Sprintf("<%s>", msg.Sender)
 		line["right"] = fmt.Sprintf("%s %s", bot.DMC[msg.Command], msg.Content)

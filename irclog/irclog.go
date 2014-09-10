@@ -54,8 +54,15 @@ func MsgIRC2Log(msg *bot.IRCMsg) (logMsg LogMsg) {
 		}
 
 		logMsg.Content = msg.Parameters[1]
+
 	case bot.JOIN_CMD, bot.PART_CMD:
 		logMsg.Receiver = msg.Parameters[0][1:] //only channels can be part/join
+
+	case bot.KICK_CMD:
+		logMsg.Receiver = msg.Parameters[0][1:] //only channels
+
+		logMsg.Content = fmt.Sprintf("Kick out %s for %s", msg.Parameters[1], msg.Parameters[2])
+
 	}
 	return
 }
@@ -86,17 +93,21 @@ func StoreLogMsg(client *redis.Client, msg *LogMsg) {
 			prefix = Key("channel", msg.Receiver)
 		}
 
-		client.Cmd("SADD", "channels", msg.Receiver)
-
-		allocMsgIDandStore(prefix, msg, client)
-
 	case bot.JOIN_CMD, bot.PART_CMD:
-		prefix := Key("channel", msg.Receiver) //only channels can be part/join
+		prefix = Key("channel", msg.Receiver) //only channels can be part/join
 
-		client.Cmd("SADD", "channels", msg.Receiver)
+	case bot.KICK_CMD:
+		prefix = Key("channel", msg.Receiver) //only channels
 
-		allocMsgIDandStore(prefix, msg, client)
+	default:
+		return //short cut
 	}
+
+	if !msg.ToUser {
+		client.Cmd("SADD", "channels", msg.Receiver)
+	}
+
+	allocMsgIDandStore(prefix, msg, client)
 }
 
 func Key(tokens ...string) string {
