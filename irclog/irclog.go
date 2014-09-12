@@ -20,6 +20,7 @@ type LogMsg struct {
 	Sender     string
 	Receiver   string
 	Content    string
+	Info       string
 	Command    int
 	SubCommand int
 	Time       time.Time
@@ -61,7 +62,10 @@ func MsgIRC2Log(msg *bot.IRCMsg) (logMsg LogMsg) {
 	case bot.KICK_CMD:
 		logMsg.Receiver = msg.Parameters[0][1:] //only channels
 
-		logMsg.Content = fmt.Sprintf("Kick out %s for %s", msg.Parameters[1], msg.Parameters[2])
+		logMsg.Content = msg.Parameters[1]
+		if len(msg.Parameters) > 2 {
+			logMsg.Info = msg.Parameters[2]
+		}
 
 	}
 	return
@@ -81,7 +85,8 @@ func allocMsgIDandStore(prefix string, msg *LogMsg, client *redis.Client) {
 	client.Cmd("ZADD", queue, msg.Time.UnixNano(), id)
 	client.Cmd("HMSET", id, "time", msg.Time.UnixNano(),
 		"content", msg.Content, "sender", msg.Sender,
-		"type", msg.Command, "subtype", msg.SubCommand)
+		"type", msg.Command, "subtype", msg.SubCommand,
+		"info", msg.Info)
 }
 func StoreLogMsg(client *redis.Client, msg *LogMsg) {
 	var prefix string

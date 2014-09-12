@@ -299,6 +299,7 @@ func channel(writer LogWriter, cname string, start, end int64, byScore bool) {
 			Command:    msgType,
 			SubCommand: msgSubType,
 			Content:    item["content"],
+			Info:       item["info"],
 			Sender:     item["sender"],
 			Receiver:   cname}
 
