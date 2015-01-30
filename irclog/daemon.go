@@ -43,6 +43,6 @@ func simpleHandler(t time.Time, line string, conn net.Conn) {
 	StoreLogMsg(client, &logMsg)
 
 	if logMsg.Command == bot.JOIN_CMD && logMsg.Sender == "LQYMGT" {
-		fmt.Fprintf(conn, "privmsg #%s :LQYMGT9", logMsg.Receiver)
+		fmt.Fprintf(conn, "privmsg #%s :LQYMGT9\r\n", logMsg.Receiver)
 	}
 }
