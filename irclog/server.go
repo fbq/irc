@@ -33,7 +33,8 @@ func server() {
 
 	mux := routes.New()
 	mux.Get("/", index)
-	mux.Get(":format(/json)?/channel/:cname", allChannelMsg)
+	mux.Get(":format(/json)?/channel/:cname", channelIndex)
+	mux.Get(":format(/json)?/channel/:cname/all", allChannelMsg)
 	mux.Get(":format(/json)?/channel/:cname/page/:num", pagedChannelMsg)
 	mux.Get(":format(/json)?/channel/:cname/date/:year/:month/:day", datedChannelMsg)
 
@@ -92,6 +93,48 @@ func msgStartDate(cname string) time.Time {
 
 func msgEndDate(cname string) time.Time {
 	return msgDate(cname, -1)
+}
+
+func channelIndex(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	cname := params.Get(":cname")
+
+	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
+	defer client.Close()
+
+	if err != nil {
+		fmt.Printf("Connection to redis server failed\n")
+		return
+	}
+
+	fmt.Fprintf(w, "<!doctype html><html><body>")
+	exists, err := client.Cmd("SISMEMBER", "channels", cname).Bool()
+
+	if exists && err != nil {
+		fmt.Fprintf(w, "<a href='/'>Home</a><br/>")
+		fmt.Fprintf(w, "Channel: <a href='/channel/%s'>%s</a><br/>", cname, cname)
+		count := msgCount(cname)
+
+		fmt.Fprintf(w, "By Date:<br/>\n")
+
+		for date := TruncateInLocation(msgStartDate(cname), oneDay); !date.After(msgEndDate(cname)); date = date.Add(oneDay) {
+			fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>%s</a> ", cname,
+				date.Format("2006/01/02"),
+				date.Format("2006/01/02"))
+		}
+		fmt.Fprintf(w, "<br/>")
+
+		fmt.Fprintf(w, "By Page:<br/>\n")
+		for i := int64(0); i < count; i += PAGE_SIZE {
+			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>%v~%v</a> ", cname,
+				i/PAGE_SIZE, i, min(i+PAGE_SIZE-1, count-1))
+		}
+		fmt.Fprintf(w, "<br/>")
+	} else {
+		fmt.Printf("This channel has not been logged\n")
+	}
+
+	fmt.Fprintf(w, "</html></body>")
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
@@ -197,7 +240,11 @@ func datedChannelMsg(w http.ResponseWriter, r *http.Request) {
 
 func WriteAllMsgInChannel(writer LogWriter, cname string) {
 	writer.Begin()
-	writer.Link("Json", fmt.Sprintf("/json/channel/%s", cname))
+	writer.Link("Home", "/")
+	writer.Space()
+	writer.Link("Channel", fmt.Sprintf("/%s", cname))
+	writer.Space()
+	writer.Link("Json", fmt.Sprintf("/json/channel/%s/all", cname))
 	writer.NewLine()
 	channel(writer, cname, 0, -1, false)
 	writer.End()
@@ -222,9 +269,11 @@ func WriteMsgInChannelByPage(writer LogWriter, cname string, pageNo int64) {
 	writer.Link("Last", fmt.Sprintf("/channel/%s/page/%v", cname, count/PAGE_SIZE))
 	writer.Space()
 
-	writer.Link("Full", fmt.Sprintf("/channel/%s", cname))
+	writer.Link("Full", fmt.Sprintf("/channel/%s/all", cname))
 	writer.Space()
 	writer.Link("Home", "/")
+	writer.Space()
+	writer.Link("Channel", fmt.Sprintf("/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/page/%v", cname, pageNo))
 	writer.NewLine()
@@ -263,9 +312,11 @@ func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 			cname, TruncateInLocation(end, oneDay).Format("2006/01/02")))
 	writer.Space()
 
-	writer.Link("Full", fmt.Sprintf("/channel/%s", cname))
+	writer.Link("Full", fmt.Sprintf("/channel/%s/all", cname))
 	writer.Space()
 	writer.Link("Home", "/")
+	writer.Space()
+	writer.Link("Channel", fmt.Sprintf("/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/date/%s", cname, date.Format("2006/01/02")))
 	writer.NewLine()
