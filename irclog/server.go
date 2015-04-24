@@ -108,9 +108,8 @@ func channelIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "<!doctype html><html><body>")
-	exists, err := client.Cmd("SISMEMBER", "channels", cname).Bool()
 
-	if exists && err != nil {
+	if validChannel(cname) {
 		fmt.Fprintf(w, "<a href='/'>Home</a><br/>")
 		fmt.Fprintf(w, "Channel: <a href='/channel/%s'>%s</a><br/>", cname, cname)
 		count := msgCount(cname)
@@ -242,7 +241,7 @@ func WriteAllMsgInChannel(writer LogWriter, cname string) {
 	writer.Begin()
 	writer.Link("Home", "/")
 	writer.Space()
-	writer.Link("Channel", fmt.Sprintf("/%s", cname))
+	writer.Link("Channel", fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/all", cname))
 	writer.NewLine()
@@ -273,7 +272,7 @@ func WriteMsgInChannelByPage(writer LogWriter, cname string, pageNo int64) {
 	writer.Space()
 	writer.Link("Home", "/")
 	writer.Space()
-	writer.Link("Channel", fmt.Sprintf("/%s", cname))
+	writer.Link("Channel", fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/page/%v", cname, pageNo))
 	writer.NewLine()
@@ -316,7 +315,7 @@ func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 	writer.Space()
 	writer.Link("Home", "/")
 	writer.Space()
-	writer.Link("Channel", fmt.Sprintf("/%s", cname))
+	writer.Link("Channel", fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/date/%s", cname, date.Format("2006/01/02")))
 	writer.NewLine()
