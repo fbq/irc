@@ -110,8 +110,9 @@ func channelIndex(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<!doctype html><html><body>")
 
 	if validChannel(cname) {
-		fmt.Fprintf(w, "<a href='/'>Home</a><br/>")
-		fmt.Fprintf(w, "Channel: <a href='/channel/%s'>%s</a><br/>", cname, cname)
+		fmt.Fprintf(w, "<a href='/'>Home</a> ")
+		fmt.Fprintf(w, "<a href='/channel/%s'>%s</a> ", cname, cname)
+		fmt.Fprintf(w, "<a href='/channel/%s/all'>All</a><br/>", cname)
 		count := msgCount(cname)
 
 		fmt.Fprintf(w, "By Date:<br/>\n")
@@ -149,7 +150,8 @@ func index(w http.ResponseWriter, r *http.Request) {
 	channels, _ := client.Cmd("SMEMBERS", "channels").List()
 
 	for _, channel := range channels {
-		fmt.Fprintf(w, "Channel: <a href='/channel/%s'>%s</a><br/>", channel, channel)
+		fmt.Fprintf(w, "<a href='/channel/%s'>%s</a> ", channel, channel)
+		fmt.Fprintf(w, "<a href='/channel/%s/all'>All</a><br/>", channel)
 		count := msgCount(channel)
 
 		fmt.Fprintf(w, "By Date:<br/>\n")
@@ -241,7 +243,7 @@ func WriteAllMsgInChannel(writer LogWriter, cname string) {
 	writer.Begin()
 	writer.Link("Home", "/")
 	writer.Space()
-	writer.Link("Channel", fmt.Sprintf("/channel/%s", cname))
+	writer.Link(cname, fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/all", cname))
 	writer.NewLine()
@@ -268,11 +270,11 @@ func WriteMsgInChannelByPage(writer LogWriter, cname string, pageNo int64) {
 	writer.Link("Last", fmt.Sprintf("/channel/%s/page/%v", cname, count/PAGE_SIZE))
 	writer.Space()
 
-	writer.Link("Full", fmt.Sprintf("/channel/%s/all", cname))
+	writer.Link("All", fmt.Sprintf("/channel/%s/all", cname))
 	writer.Space()
 	writer.Link("Home", "/")
 	writer.Space()
-	writer.Link("Channel", fmt.Sprintf("/channel/%s", cname))
+	writer.Link(cname, fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/page/%v", cname, pageNo))
 	writer.NewLine()
@@ -311,11 +313,11 @@ func WriteMsgInChannelByDate(writer LogWriter, cname string, date time.Time) {
 			cname, TruncateInLocation(end, oneDay).Format("2006/01/02")))
 	writer.Space()
 
-	writer.Link("Full", fmt.Sprintf("/channel/%s/all", cname))
+	writer.Link("All", fmt.Sprintf("/channel/%s/all", cname))
 	writer.Space()
 	writer.Link("Home", "/")
 	writer.Space()
-	writer.Link("Channel", fmt.Sprintf("/channel/%s", cname))
+	writer.Link(cname, fmt.Sprintf("/channel/%s", cname))
 	writer.Space()
 	writer.Link("Json", fmt.Sprintf("/json/channel/%s/date/%s", cname, date.Format("2006/01/02")))
 	writer.NewLine()
