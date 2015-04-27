@@ -113,7 +113,6 @@ func channelIndex(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "<a href='/'>Home</a> ")
 		fmt.Fprintf(w, "<a href='/channel/%s'>%s</a> ", cname, cname)
 		fmt.Fprintf(w, "<a href='/channel/%s/all'>All</a><br/>", cname)
-		count := msgCount(cname)
 
 		fmt.Fprintf(w, "By Date:<br/>\n")
 
@@ -121,13 +120,6 @@ func channelIndex(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "<a href='/channel/%s/date/%s'>%s</a> ", cname,
 				date.Format("2006/01/02"),
 				date.Format("2006/01/02"))
-		}
-		fmt.Fprintf(w, "<br/>")
-
-		fmt.Fprintf(w, "By Page:<br/>\n")
-		for i := int64(0); i < count; i += PAGE_SIZE {
-			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>%v~%v</a> ", cname,
-				i/PAGE_SIZE, i, min(i+PAGE_SIZE-1, count-1))
 		}
 		fmt.Fprintf(w, "<br/>")
 	} else {
@@ -152,7 +144,6 @@ func index(w http.ResponseWriter, r *http.Request) {
 	for _, channel := range channels {
 		fmt.Fprintf(w, "<a href='/channel/%s'>%s</a> ", channel, channel)
 		fmt.Fprintf(w, "<a href='/channel/%s/all'>All</a><br/>", channel)
-		count := msgCount(channel)
 
 		fmt.Fprintf(w, "By Date:<br/>\n")
 
@@ -163,12 +154,6 @@ func index(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(w, "<br/>")
 
-		fmt.Fprintf(w, "By Page:<br/>\n")
-		for i := int64(0); i < count; i += PAGE_SIZE {
-			fmt.Fprintf(w, "<a href='/channel/%s/page/%v'>%v~%v</a> ", channel,
-				i/PAGE_SIZE, i, min(i+PAGE_SIZE-1, count-1))
-		}
-		fmt.Fprintf(w, "<br/>")
 		fmt.Fprintf(w, "<br/>")
 	}
 	fmt.Fprintf(w, "</html></body>")
