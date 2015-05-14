@@ -33,6 +33,7 @@ func server() {
 
 	mux := routes.New()
 	mux.Get("/", index)
+	mux.Get("/robots.txt", robots)
 	mux.Get(":format(/json)?/channel/:cname", channelIndex)
 	mux.Get(":format(/json)?/channel/:cname/all", allChannelMsg)
 	mux.Get(":format(/json)?/channel/:cname/page/:num", pagedChannelMsg)
@@ -42,6 +43,10 @@ func server() {
 	http.ListenAndServe(":8080", nil)
 }
 
+func robots(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "User-agent: *\n")
+	fmt.Fprintf(w, "Disallow: /\n")
+}
 func validChannel(cname string) bool {
 	client, err := redis.Dial("tcp", fmt.Sprintf("%s:%v", RedisServerAddress, RedisServerPort))
 	defer client.Close()
